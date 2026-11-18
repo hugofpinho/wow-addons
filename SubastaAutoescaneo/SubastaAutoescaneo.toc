@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Subasta: escaneo automático
+## Notes: Deja siempre encendida la opción de Auctionator «Ejecutar escaneo automático al abrir la casa de subastas», para que el registro de precios se actualice solo.
+## Author: Huguillo
+## Version: 1.0
+## Dependencies: Auctionator
+
+SubastaAutoescaneo.lua

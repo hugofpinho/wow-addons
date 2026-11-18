@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="BUSCADOREQUIPO_ABRIR" header="BUSCADOREQUIPO" category="ADDONS">
+		BuscadorEquipo_Abrir()
+	</Binding>
+</Bindings>

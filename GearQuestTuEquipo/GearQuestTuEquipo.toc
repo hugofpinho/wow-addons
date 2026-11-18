@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: GearQuest: con tu equipo
+## Notes: Para cualquier clase: lo que llevas puesto entra en la lista de GearQuest y tiene puesto en el tooltip (antes salía «Sin puesto a tu nivel»), con los mismos pesos de GearQuest. Y pone el nombre de la especialización personalizada en vez de «c:1».
+## Author: Huguillo
+## Version: 1.0
+## Dependencies: GearQuestForever
+
+GearQuestTuEquipo.lua
