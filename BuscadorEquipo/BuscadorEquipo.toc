@@ -2,7 +2,9 @@
 ## Title: Buscador de equipo
 ## Notes: Busca un objeto por su nombre y dice cómo se consigue (botín con porcentaje, misión, vendedor, fabricación) y qué nivel pide; con filtros de clase, especialización, hueco y nivel enseña los mejores de GearQuest para ese nivel.
 ## Author: Huguillo
-## Version: 1.2
+## Version: 1.2.1
+## SavedVariables: HugoAddonsAvisoDB
 ## OptionalDeps: Polestar, GearQuestForever, GearQuestLeveo
 
 BuscadorEquipo.lua
+AvisoGitHub.lua
