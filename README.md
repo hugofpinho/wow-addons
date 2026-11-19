@@ -57,9 +57,9 @@ Necesita: Pawn.
 
 Usa (si los tienes): Polestar.
 
-### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.0.1)
+### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.1)
 
-Para cualquier clase: lo que llevas puesto entra en la lista de GearQuest y tiene puesto en el tooltip (antes salía «Sin puesto a tu nivel»), con los mismos pesos de GearQuest. Y pone el nombre de la especialización personalizada en vez de «c:1».
+Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). Lo que llevas puesto entra en la lista con su sufijo de verdad, y lo que no está en la lista tiene en el tooltip el puesto que tendría.
 
 Necesita: GearQuestForever.
 

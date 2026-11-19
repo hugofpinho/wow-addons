@@ -1,9 +1,10 @@
 ## Interface: 16001
 ## Title: GearQuest: con tu equipo
-## Notes: Para cualquier clase: lo que llevas puesto entra en la lista de GearQuest y tiene puesto en el tooltip (antes salía «Sin puesto a tu nivel»), con los mismos pesos de GearQuest. Y pone el nombre de la especialización personalizada en vez de «c:1».
+## Notes: Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). Lo que llevas puesto entra en la lista con su sufijo de verdad, y lo que no está en la lista tiene en el tooltip el puesto que tendría.
 ## Author: Huguillo
-## Version: 1.0.1
+## Version: 1.1
 ## SavedVariables: HugoAddonsAvisoDB
+## SavedVariablesPerCharacter: GearQuestTuEquipoDB
 ## Dependencies: GearQuestForever
 
 GearQuestTuEquipo.lua
