@@ -29,9 +29,9 @@ nombres y las versiones de estos addons.
 ## Los addons
 
 <!-- addons -->
-### Partir montones — `PartirMontones` (versión 1.0.1)
+### Partir montones — `PartirMontones` (versión 1.1.0)
 
-Mayús + clic izquierdo en un montón de las bolsas abre siempre la ventanita para partirlo (elegir cuántos coger), también con Baganator. Si el objeto no se apila, lo avisa.
+Mayús + clic izquierdo en un montón de las bolsas abre siempre la ventanita para partirlo (elegir cuántos coger), también con Baganator. Si el objeto no se apila, lo avisa. Con el comercio abierto, la parte que eliges va sola al comercio (el juego, si no, daría el montón entero).
 
 ### Buscador de equipo — `BuscadorEquipo` (versión 1.2.1)
 

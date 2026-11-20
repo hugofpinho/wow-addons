@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Partir montones
-## Notes: Mayús + clic izquierdo en un montón de las bolsas abre siempre la ventanita para partirlo (elegir cuántos coger), también con Baganator. Si el objeto no se apila, lo avisa.
+## Notes: Mayús + clic izquierdo en un montón de las bolsas abre siempre la ventanita para partirlo (elegir cuántos coger), también con Baganator. Si el objeto no se apila, lo avisa. Con el comercio abierto, la parte que eliges va sola al comercio (el juego, si no, daría el montón entero).
 ## Author: Huguillo
-## Version: 1.0.1
+## Version: 1.1.0
 ## SavedVariables: HugoAddonsAvisoDB
 
 PartirMontones.lua
