@@ -49,14 +49,6 @@ Deja siempre encendida la opción de Auctionator «Ejecutar escaneo automático 
 
 Necesita: Auctionator.
 
-### Pawn: arreglos para Forever — `PawnForeverES` (versión 1.0.1)
-
-Enseña a Pawn las líneas de los objetos de Forever en español (daño y sanación con hechizos, daño por escuela, resistencias...) y le pone las escalas de subir de nivel de Polestar (la varita cuenta). No toca los archivos de Pawn.
-
-Necesita: Pawn.
-
-Usa (si los tienes): Polestar.
-
 ### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.1)
 
 Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). Lo que llevas puesto entra en la lista con su sufijo de verdad, y lo que no está en la lista tiene en el tooltip el puesto que tendría.
