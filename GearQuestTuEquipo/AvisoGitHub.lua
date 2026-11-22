@@ -4,9 +4,12 @@
 --
 -- Como Polestar: los addons no pueden mirar en internet, así que cada uno dice su versión
 -- a los demás jugadores que también los tienen, por el canal oculto de los addons:
---   * al entrar (a los 20 s, como mucho cada 30 min): a tu hermandad, a tu grupo y a tus
---     amigos de Battle.net que estén en WoW Forever (aunque sean de otro reino);
+--   * al entrar (a los 20 s, como mucho cada 30 min): a tu grupo, a tus amigos de Battle.net
+--     que estén en WoW Forever (aunque sean de otro reino) y a los miembros conectados de la
+--     comunidad «El reino de Lordran» (un susurro oculto de addon a cada uno);
 --   * al entrar en un grupo: al grupo.
+-- A la hermandad no se le manda nada (versión 2, 2026-11-22): puede ser grande y de gente que
+-- no tiene nada que ver con estos addons.
 -- Si alguien tiene una versión más nueva de un addon que tú tienes, sale el aviso: una
 -- línea en el chat y una ventanita con el enlace para copiarlo. Y si el que va atrasado es
 -- el otro, se lo dices tú (una vez por persona y sesión). Lo que se sabe se guarda 14 días,
@@ -15,10 +18,13 @@
 -- Solo se mandan los nombres y versiones de estos addons. Nada más.
 
 local ADDON = ...
-local LIB_VERSION = 1
+local LIB_VERSION = 2
 local URL = "github.com/hugofpinho/wow-addons"
 local PREFIX = "HugoAddons"
 local HELLO_GAP, HELLO_DELAY, KEEP_DAYS = 1800, 20, 14
+-- Comunidades (de personajes) a cuyos miembros conectados se anuncia, por nombre.
+local COMUNIDADES = { ["El reino de Lordran"] = true }
+local MAX_SUSURROS, PAUSA_SUSURRO = 40, 1.2 -- el juego deja ~1 mensaje de addon por segundo
 
 local lib = _G.HugoAddonsAviso
 if lib and (lib.libVersion or 0) >= LIB_VERSION then
@@ -216,15 +222,87 @@ local function wowFriends()
 	return out
 end
 
+-- Las comunidades de COMUNIDADES en las que estás: { clubId, ... }.
+local function comunidades()
+	local out = {}
+	local C = C_Club
+	if not (C and C.GetSubscribedClubs) then return out end
+	local okC, clubs = pcall(C.GetSubscribedClubs)
+	clubs = okC and ok(clubs)
+	if type(clubs) ~= "table" then return out end
+	for _, club in ipairs(clubs) do
+		local name, id = type(club) == "table" and ok(club.name), type(club) == "table" and ok(club.clubId)
+		if name and id and COMUNIDADES[name] then out[#out + 1] = id end
+	end
+	return out
+end
+
+-- Sus miembros conectados al juego (en línea, ausentes u ocupados), sin ti: { nombre, ... }.
+local function miembrosConectados()
+	local out, seen = {}, {}
+	local C = C_Club
+	if not (C and C.GetClubMembers and C.GetMemberInfo) then return out end
+	for _, clubId in ipairs(comunidades()) do
+		local okM, members = pcall(C.GetClubMembers, clubId)
+		members = okM and ok(members)
+		for _, memberId in ipairs(type(members) == "table" and members or {}) do
+			local okI, info = pcall(C.GetMemberInfo, clubId, memberId)
+			info = okI and ok(info)
+			if type(info) == "table" and not ok(info.isSelf) then
+				local who, presence = ok(info.name), ok(info.presence)
+				if type(who) == "string" and who ~= "" and not seen[who] and (presence == 1 or presence == 4 or presence == 5) then
+					seen[who] = true
+					out[#out + 1] = who
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- Si un miembro se desconectó justo antes, el juego diría «No se encuentra a un jugador
+-- llamado X» en el chat: esa línea se calla para los nombres recién susurrados.
+local callados = {}
+local function callar(who) callados[who] = (GetTime and GetTime() or 0) + 8 end
+do
+	local addFilter = (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter) or ChatFrame_AddMessageEventFilter
+	local plantilla = ERR_CHAT_PLAYER_NOT_FOUND_S
+	if not lib.filtro and type(addFilter) == "function" and type(plantilla) == "string" then
+		local patron = "^" .. plantilla:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0"):gsub("%%s", "(.+)") .. "$"
+		lib.filtro = pcall(addFilter, "CHAT_MSG_SYSTEM", function(_, _, msg)
+			msg = ok(msg)
+			local who = type(msg) == "string" and msg:match(patron)
+			local hasta = who and callados[who]
+			if hasta and hasta > (GetTime and GetTime() or 0) then return true end
+			return false
+		end)
+	end
+end
+
 local function hello()
 	local d = db()
-	if now() - (tonumber(d.helloAt) or 0) < HELLO_GAP then return end
+	local falta = HELLO_GAP - (now() - (tonumber(d.helloAt) or 0))
+	if falta > 0 then
+		-- Demasiado pronto desde el último: se deja para cuando toque (antes no se reintentaba
+		-- y, entrando dos veces seguidas, no se anunciaba nada en toda la sesión).
+		if not lib.reintento then
+			lib.reintento = true
+			C_Timer.After(falta + 5, function() lib.reintento = nil; hello() end)
+		end
+		return
+	end
 	d.helloAt = now()
 	local text = encode("V")
-	if IsInGuild and IsInGuild() then send("GUILD", nil, text) end
 	local g = groupChannel()
 	if g then send(g, nil, text) end
 	for _, id in ipairs(wowFriends()) do send("BN", id, text) end
+	for i, who in ipairs(miembrosConectados()) do
+		if i > MAX_SUSURROS then break end
+		C_Timer.After((i - 1) * PAUSA_SUSURRO, function()
+			callar(who)
+			send("WHISPER", who, text)
+		end)
+	end
 end
 
 local function heard(kind, list, channel, sender)
@@ -273,6 +351,12 @@ if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.Re
 frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
 	if event == "PLAYER_LOGIN" then
 		C_Timer.After(5, notify)
+		-- La lista de miembros de una comunidad llega cuando se le pide: se pide antes de anunciar.
+		C_Timer.After(8, function()
+			if C_Club and C_Club.FocusMembers then
+				for _, clubId in ipairs(comunidades()) do pcall(C_Club.FocusMembers, clubId) end
+			end
+		end)
 		C_Timer.After(HELLO_DELAY, hello)
 	elseif event == "GROUP_JOINED" then
 		C_Timer.After(3, function()

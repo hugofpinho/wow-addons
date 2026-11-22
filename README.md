@@ -21,47 +21,48 @@ sustituye las carpetas.
 ### Aviso de versiones nuevas
 
 Cada addon trae un aviso, como el de Polestar: al entrar al juego, los addons se dicen su
-versión entre jugadores que los tienen (tu hermandad, tu grupo y tus amigos de Battle.net
-que estén en WoW Forever, aunque sean de otro reino). Si alguien tiene una más nueva, te
+versión entre jugadores que los tienen (tu grupo, tus amigos de Battle.net que estén en
+WoW Forever, aunque sean de otro reino, y los miembros conectados de la comunidad «El reino
+de Lordran»). A la hermandad no se le manda nada. Si alguien tiene una más nueva, te
 sale una ventanita con el enlace de esta página y una línea en el chat. Solo se mandan los
 nombres y las versiones de estos addons.
 
 ## Los addons
 
 <!-- addons -->
-### Partir montones — `PartirMontones` (versión 1.1.0)
+### Partir montones — `PartirMontones` (versión 1.1.1)
 
 Mayús + clic izquierdo en un montón de las bolsas abre siempre la ventanita para partirlo (elegir cuántos coger), también con Baganator. Si el objeto no se apila, lo avisa. Con el comercio abierto, la parte que eliges va sola al comercio (el juego, si no, daría el montón entero).
 
-### Buscador de objetos — `BuscadorEquipo` (versión 1.3)
+### Buscador de objetos — `BuscadorEquipo` (versión 1.3.1)
 
 Busca cualquier objeto del juego por su nombre (equipo, materiales, consumibles, objetos de misión, recetas, monturas, mascotas…) y dice cómo se consigue (botín con porcentaje, misión, vendedor, fabricación), de qué tipo es y qué nivel pide; con filtros de clase, especialización, hueco y nivel enseña el mejor equipo de GearQuest para ese nivel.
 
 Usa (si los tienes): Polestar, GearQuestForever.
 
-### Comprar varios — `ComprarVarios` (versión 1.0.1)
+### Comprar varios — `ComprarVarios` (versión 1.0.2)
 
 En un mercader, Alt + clic en un objeto abre una ventanita para comprar de golpe tantos como quieras (varios montones), con el precio total y los huecos que ocupa.
 
-### Subasta: escaneo automático — `SubastaAutoescaneo` (versión 1.0.1)
+### Subasta: escaneo automático — `SubastaAutoescaneo` (versión 1.0.2)
 
 Deja siempre encendida la opción de Auctionator «Ejecutar escaneo automático al abrir la casa de subastas», para que el registro de precios se actualice solo.
 
 Necesita: Auctionator.
 
-### Limpiar misiones — `LimpiarMisiones` (versión 1.0)
+### Limpiar misiones — `LimpiarMisiones` (versión 1.0.1)
 
 Deja plegado el panel de objetivos al entrar y al recargar, y pone un botón «Limpiar misiones» que enseña qué misiones del registro se han quedado atrás (por nivel, por zona o porque tu ruta de Polestar no las usa), con el motivo de cada una, para abandonarlas de una vez.
 
 Usa (si los tienes): Polestar.
 
-### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2)
+### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2.1)
 
 Pone en Polestar la probabilidad real de que cada enemigo suelte un objeto de misión (lo que miden en Forever los jugadores de EG Link y lo que te cae a ti, siempre con la misión cogida) y rellena la que Polestar no tiene. También la enseña al pasar el ratón por el enemigo.
 
 Necesita: Polestar.
 
-### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.2)
+### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.2.1)
 
 Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). En la lista entra además todo lo que existe para tu clase y tu nivel, no solo lo que trae GearQuest; lo que llevas puesto entra con su sufijo de verdad (también los sufijos nuevos de Forever), y lo que mires fuera de la lista tiene en el tooltip el puesto que tendría y si es mejor o peor que lo que llevas.
 
