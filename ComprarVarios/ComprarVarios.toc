@@ -2,7 +2,7 @@
 ## Title: Comprar varios
 ## Notes: En un mercader, Alt + clic en un objeto abre una ventanita para comprar de golpe tantos como quieras (varios montones), con el precio total y los huecos que ocupa.
 ## Author: Huguillo
-## Version: 1.0.2
+## Version: 1.0.3
 ## SavedVariables: HugoAddonsAvisoDB
 
 ComprarVarios.lua

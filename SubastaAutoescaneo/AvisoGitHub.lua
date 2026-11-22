@@ -9,7 +9,8 @@
 --     comunidad «El reino de Lordran» (un susurro oculto de addon a cada uno);
 --   * al entrar en un grupo: al grupo.
 -- A la hermandad no se le manda nada (versión 2, 2026-11-22): puede ser grande y de gente que
--- no tiene nada que ver con estos addons.
+-- no tiene nada que ver con estos addons. Si tus versiones han cambiado desde el último
+-- anuncio, no se esperan los 30 min (versión 3).
 -- Si alguien tiene una versión más nueva de un addon que tú tienes, sale el aviso: una
 -- línea en el chat y una ventanita con el enlace para copiarlo. Y si el que va atrasado es
 -- el otro, se lo dices tú (una vez por persona y sesión). Lo que se sabe se guarda 14 días,
@@ -18,7 +19,7 @@
 -- Solo se mandan los nombres y versiones de estos addons. Nada más.
 
 local ADDON = ...
-local LIB_VERSION = 2
+local LIB_VERSION = 3
 local URL = "github.com/hugofpinho/wow-addons"
 local PREFIX = "HugoAddons"
 local HELLO_GAP, HELLO_DELAY, KEEP_DAYS = 1800, 20, 14
@@ -281,8 +282,11 @@ end
 
 local function hello()
 	local d = db()
+	local text = encode("V")
 	local falta = HELLO_GAP - (now() - (tonumber(d.helloAt) or 0))
-	if falta > 0 then
+	-- Como mucho cada 30 min… salvo que tus versiones hayan cambiado desde el último anuncio
+	-- (versión 3): si acabas de actualizar, se anuncia ya, no media hora después.
+	if falta > 0 and d.helloText == text then
 		-- Demasiado pronto desde el último: se deja para cuando toque (antes no se reintentaba
 		-- y, entrando dos veces seguidas, no se anunciaba nada en toda la sesión).
 		if not lib.reintento then
@@ -291,8 +295,7 @@ local function hello()
 		end
 		return
 	end
-	d.helloAt = now()
-	local text = encode("V")
+	d.helloAt, d.helloText = now(), text
 	local g = groupChannel()
 	if g then send(g, nil, text) end
 	for _, id in ipairs(wowFriends()) do send("BN", id, text) end
