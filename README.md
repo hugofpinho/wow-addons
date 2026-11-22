@@ -50,11 +50,9 @@ Deja siempre encendida la opción de Auctionator «Ejecutar escaneo automático 
 
 Necesita: Auctionator.
 
-### Limpiar misiones — `LimpiarMisiones` (versión 1.0.2)
+### Panel de objetivos plegado — `LimpiarMisiones` (versión 1.1.0)
 
-Deja plegado el panel de objetivos al entrar y al recargar, y pone un botón «Limpiar misiones» que enseña qué misiones del registro se han quedado atrás (por nivel, por zona o porque tu ruta de Polestar no las usa), con el motivo de cada una, para abandonarlas de una vez.
-
-Usa (si los tienes): Polestar.
+Deja plegado el panel de objetivos al entrar y al recargar, y lo vuelve a plegar si el juego lo despliega solo; si lo despliegas tú, se queda así hasta la próxima carga. (Hasta la 1.0 traía también un botón «Limpiar misiones»: se quitó porque Polestar ya lo hace con su ventana «Haz sitio en tu registro de misiones».)
 
 ### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2.3)
 
@@ -62,9 +60,9 @@ Pone en Polestar la probabilidad real de que cada enemigo suelte un objeto de mi
 
 Necesita: Polestar.
 
-### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.3)
+### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.4)
 
-Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). En la lista entra además todo lo que existe para tu clase y tu nivel, no solo lo que trae GearQuest; lo que llevas puesto entra con su sufijo de verdad (también los sufijos nuevos de Forever), y lo que mires fuera de la lista tiene en el tooltip el puesto que tendría y si es mejor o peor que lo que llevas.
+Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). En la lista entra además todo lo que existe para tu clase y tu nivel, no solo lo que trae GearQuest; lo que llevas puesto entra con su sufijo de verdad (también los sufijos nuevos de Forever), y lo que mires fuera de la lista tiene en el tooltip el puesto que tendría y si es mejor o peor que lo que llevas. Pícaro: cada arma vale lo suyo en cada mano y según tu rama (izquierda con las cifras del simulador ForeverSim, derecha más lenta mejor, dagas en Sutileza y Asesinato), y el tooltip de un arma de una mano dice también su puesto en la mano izquierda y si es mejor que la que llevas ahí. Mago: el daño de cada escuela según tu rama, con las cifras de ForeverSim.
 
 Necesita: GearQuestForever.
 

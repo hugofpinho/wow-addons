@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: GearQuest: con tu equipo
-## Notes: Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). En la lista entra además todo lo que existe para tu clase y tu nivel, no solo lo que trae GearQuest; lo que llevas puesto entra con su sufijo de verdad (también los sufijos nuevos de Forever), y lo que mires fuera de la lista tiene en el tooltip el puesto que tendría y si es mejor o peor que lo que llevas.
+## Notes: Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). En la lista entra además todo lo que existe para tu clase y tu nivel, no solo lo que trae GearQuest; lo que llevas puesto entra con su sufijo de verdad (también los sufijos nuevos de Forever), y lo que mires fuera de la lista tiene en el tooltip el puesto que tendría y si es mejor o peor que lo que llevas. Pícaro: cada arma vale lo suyo en cada mano y según tu rama (izquierda con las cifras del simulador ForeverSim, derecha más lenta mejor, dagas en Sutileza y Asesinato), y el tooltip de un arma de una mano dice también su puesto en la mano izquierda y si es mejor que la que llevas ahí. Mago: el daño de cada escuela según tu rama, con las cifras de ForeverSim.
 ## Author: Huguillo
-## Version: 1.3
+## Version: 1.4
 ## SavedVariables: HugoAddonsAvisoDB
 ## SavedVariablesPerCharacter: GearQuestTuEquipoDB
 ## Dependencies: GearQuestForever

@@ -1,4 +1,23 @@
--- GearQuest: con tu equipo 1.3 (2026-11-22)
+-- GearQuest: con tu equipo 1.4 (2026-11-22)
+--
+-- 1.4: el pícaro, por manos y por ramas. GearQuest puntúa las armas del pícaro igual en las
+--   tres ramas y da a la mano izquierda el mismo valor que a la derecha (su código lo dice:
+--   «An off-hand weapon keeps the full weapon-damage weight»), y el tooltip de un arma de una
+--   mano solo la compara con la de la derecha. Ahora, en las especializaciones de este addon:
+--   · Mano izquierda: 1 de daño por segundo vale lo que mide ForeverSim (simulador de Forever,
+--     sus pesos vienen en Does It Die Plus) frente a la derecha: Combate 0,29, Sutileza 0,36 y
+--     Asesinato 0,56 (Mutilar golpea con las dos; sin dagas, como Sutileza).
+--   · Mano derecha: los golpes especiales (Golpe siniestro, Hemorragia…) suman el golpe del
+--     arma, así que un arma lenta pega más en cada uno (las guías de Combate de Forever: lenta
+--     en la derecha, rápida en la izquierda). Sutileza: Hemorragia hace el 145 % con daga.
+--     Asesinato desde el 30 (Mutilar, que pide dagas en las dos manos): lo que no es daga vale
+--     menos.
+--   · El tooltip de un arma de una mano dice además su puesto en la mano izquierda y si es
+--     mejor o peor que lo que llevas en esa mano.
+--   Las cifras y de dónde sale cada una, en la tabla PICARO.
+--   Mago: el daño de cada escuela según la rama, con lo que mide ForeverSim (la rama Arcana de
+--   GearQuest valoraba el daño Arcano en 0,5 y el de Escarcha en 0,35; el simulador, 0,92 y 0,08).
+--   Las dos manos del mago (arma y objeto de la izquierda frente a bastón) ya las junta GearQuest.
 --
 -- 1.3: los objetos de sufijo aleatorio salen dos veces. Con su mejor sufijo, como lo pone
 --   GearQuest («Cinta real de ira de las sombras», la n.º 1 si te toca), pero diciendo que es
@@ -80,14 +99,31 @@ local CRIT_UNIT, HIT_UNIT = 14, 10
 --   trae la agilidad por delante (pesos de banda). Se cambian solo esas dos; daño del arma,
 --   golpe y crítico se quedan como los trae GearQuest. Las guías no coinciden en el resto.
 --   Cuerpo a cuerpo (salvo eso), cazadores, tanques y sanadores: los de GearQuest.
+--   Mago (1.4): el daño de cada escuela según la rama, de ForeverSim (simulador de Forever,
+--   27-09-2026, builds de nivel 60; sus pesos vienen en Does It Die Plus), por cada punto de daño
+--   con hechizos: Arcano 0,92 de Arcano y 0,08 de Escarcha; Fuego 1 de Fuego; Escarcha 1 de
+--   Escarcha; las demás escuelas, 0. GearQuest trae Arcano 0,5 y Escarcha 0,35 en la rama Arcana
+--   (el Arcano por debajo de la mitad de lo que mide el simulador) y 0,92 + 0,03 de la otra en
+--   Fuego y Escarcha. El Mago de batalla usa los de su escuela. Intelecto, espíritu y maná se
+--   quedan como los trae GearQuest (con su multiplicador de subida de nivel): ForeverSim los mide
+--   en peleas de banda, no subiendo de nivel con descansos.
+local MAGO_ARCANO = { spArcane = 0.9238, spFrost = 0.0762, spFire = 0 }
+local MAGO_FUEGO = { spFire = 1, spFrost = 0, spArcane = 0 }
+local MAGO_ESCARCHA = { spFrost = 1, spFire = 0, spArcane = 0 }
+local function con(base, extra)
+	local t = {}
+	for k, v in pairs(base) do t[k] = v end
+	for k, v in pairs(extra) do t[k] = v end
+	return t
+end
 local LEVELING = {
 	MAGE = {
-		arcane = { crit = 0.2, hit = 0.4, dpsWeightRanged = 1 },
-		fire = { crit = 0.3, hit = 0.4, dpsWeightRanged = 1 },
-		frost = { crit = 0.2, hit = 0.4, dpsWeightRanged = 1 },
-		battlemage_arcane = { crit = 0.2, hit = 0.4, dpsWeightRanged = 1 },
-		battlemage_fire = { crit = 0.3, hit = 0.4, dpsWeightRanged = 1 },
-		battlemage_frost = { crit = 0.2, hit = 0.4, dpsWeightRanged = 1 },
+		arcane = con({ crit = 0.2, hit = 0.4, dpsWeightRanged = 1 }, MAGO_ARCANO),
+		fire = con({ crit = 0.3, hit = 0.4, dpsWeightRanged = 1 }, MAGO_FUEGO),
+		frost = con({ crit = 0.2, hit = 0.4, dpsWeightRanged = 1 }, MAGO_ESCARCHA),
+		battlemage_arcane = con({ crit = 0.2, hit = 0.4, dpsWeightRanged = 1 }, MAGO_ARCANO),
+		battlemage_fire = con({ crit = 0.3, hit = 0.4, dpsWeightRanged = 1 }, MAGO_FUEGO),
+		battlemage_frost = con({ crit = 0.2, hit = 0.4, dpsWeightRanged = 1 }, MAGO_ESCARCHA),
 	},
 	PRIEST = {
 		shadow = { crit = 0.2, hit = 0.4, dpsWeightRanged = 2 },
@@ -114,6 +150,39 @@ local function levelingFor(classFile, base)
 	local byClass = LEVELING[classFile]
 	return byClass and byClass[base] or {}
 end
+
+-- Pícaro: las armas según la mano y la rama (1.4). GearQuest suma por cada arma «daño por
+-- segundo × dpsWeight» (15 en las tres ramas), en las dos manos igual. Aquí ese término se
+-- cambia por «dpsWeight × valor», con valor:
+--   mano izquierda: daño por segundo × izquierda[rama]
+--   mano derecha:   daño por segundo × (1 + golpes × (velocidad × daga[rama] − velocidadMedia))
+-- y en Asesinato desde nivelMutilar, × sinMutilar si no es daga. Lo demás (estadísticas, efectos
+-- al golpear) se queda como lo puntúa GearQuest.
+local PICARO = {
+	-- Cuánto vale 1 de daño por segundo en la mano izquierda frente a la derecha. ForeverSim
+	-- (lozstokes.co.uk/foreversim, sobre los simuladores de WoWSims para Forever), ejecución del
+	-- 27-09-2026 con builds de nivel 60, tal como la trae Does It Die Plus (StatsInfo/Weights.lua):
+	-- Combate 3,188 / 11,021; Sutileza 3,581 / 10,034; Asesinato (con Mutilar) 4,488 / 8,047.
+	izquierda = { combat = 3.188 / 11.021, subtlety = 3.581 / 10.034, assassination = 4.488 / 8.047 },
+	-- Asesinato sin Mutilar (antes del 30, o con algo que no sea daga en esa mano): como Sutileza.
+	izquierdaSinMutilar = 3.581 / 10.034,
+	-- Golpes especiales por segundo que suman el golpe del arma de la derecha (Golpe siniestro,
+	-- Hemorragia, Puñalada): 10 de energía por segundo, unos dos tercios a golpes de 40-45 de
+	-- energía. Es una estimación mía: ninguna guía da la cifra.
+	golpes = 0.15,
+	-- Velocidad de referencia (la media de un arma de una mano): más lenta suma y más rápida resta.
+	velocidadMedia = 2.4,
+	-- Sutileza: Hemorragia hace el 145 % del arma con daga y el 100 % con otra cosa (Conquest Capped,
+	-- talentos de Forever; el anuncio de Blizzard solo dice que con daga pega más).
+	daga = { subtlety = 1.45 },
+	-- Asesinato: Mutilar es el talento de 21 puntos (desde el 30) y pide dagas en las dos manos
+	-- (anuncio de Blizzard). Con otra arma te quedas sin él: un 15 % menos (estimación mía: Mutilar
+	-- golpea con las dos armas por el 90 % + 40 y da 2 puntos de combo por 60 de energía, Golpe
+	-- siniestro 1 por 40-45; sale entre un 15 y un 20 % más de daño, sin contar los puntos de combo).
+	nivelMutilar = 30,
+	sinMutilar = 0.85,
+}
+local DAGA = 2 * 100 + 15 -- clase de objeto (clase × 100 + subclase): arma, daga
 
 local GQ = _G.GearQuest
 local function leveoPresent()
@@ -728,6 +797,54 @@ local function kindOf(id)
 	return slot, equipLoc, classID * 100 + subclassID
 end
 
+-- Pícaro (1.4) ------------------------------------------------------------------------------
+
+local esDagaCache = {}
+local function esDaga(id)
+	id = type(id) == "number" and math.floor(id) or id
+	local hit = esDagaCache[id]
+	if hit == nil then
+		local _, _, kind = kindOf(id)
+		hit = kind == DAGA
+		esDagaCache[id] = hit
+	end
+	return hit
+end
+
+-- Lo que vale el arma en esa mano para esa rama, en «daño por segundo» de GearQuest (ver PICARO).
+local function valorArma(base, slot, dps, speed, daga, nivel)
+	local mutilar = base == "assassination" and (nivel or 1) >= PICARO.nivelMutilar
+	if slot == "SecondaryHand" then
+		local r = PICARO.izquierda[base] or 0.5
+		if base == "assassination" and not (mutilar and daga) then r = PICARO.izquierdaSinMutilar end
+		return dps * r
+	end
+	if not (type(speed) == "number" and speed > 0) then speed = PICARO.velocidadMedia end
+	local m = daga and PICARO.daga[base] or 1
+	local v = dps * (1 + PICARO.golpes * (speed * m - PICARO.velocidadMedia))
+	if mutilar and not daga then v = v * PICARO.sinMutilar end
+	return v
+end
+
+local function armaDePicaro(job, entry)
+	return type(job) == "table" and job.classFile == "ROGUE" and job.record and job.record.tuEquipo
+		and PICARO.izquierda[job.record.base] ~= nil and type(job.weightsAt) == "function"
+		and type(entry) == "table" and (entry.slot == "MainHand" or entry.slot == "SecondaryHand") or false
+end
+
+-- La fila recién puntuada por GearQuest: cambia su «daño por segundo × dpsWeight» por el de esa mano.
+local function ajustarArma(job, entry, fila)
+	local row = job.stats and job.stats[math.floor(entry.itemId)]
+	local dps = row and tonumber(row.dps) or 0
+	if dps <= 0 or type(fila.pipelineScore) ~= "number" then return end
+	local _, weight = job.weightsAt(entry.minLevel or 1)
+	weight = tonumber(weight) or 0
+	if weight == 0 then return end
+	local valor = valorArma(job.record.base, entry.slot, dps, tonumber(row.spd), esDaga(entry.itemId), entry.minLevel or 1)
+	fila.pipelineScore = math.floor((fila.pipelineScore + weight * (valor - dps)) * 100 + 0.5) / 100
+	fila.tuEquipoMano = entry.slot
+end
+
 -- Polestar_ItemDB trae las estadísticas de todos los objetos que se pueden equipar, pero no
 -- deja listarlos: se apuntan sus números al registrarse (es un addon que se carga a petición).
 local polestarIds
@@ -1003,6 +1120,8 @@ local function wornScore(scoring, slot, equipLoc)
 			if type(id) == "number" and not issecret(id) then
 				local wornSlot, wornLoc = slotOfLink(id)
 				local row = statsFromTooltip(inv)
+				-- Un arma de una mano en la izquierda cuenta como de la izquierda (1.4: antes no se encontraba).
+				if wornSlot ~= slot and slot == "SecondaryHand" and wornLoc == "INVTYPE_WEAPON" then wornSlot = slot end
 				if wornSlot == slot and row and (slot ~= "MainHand" or (HAND_OF[wornLoc] == "two") == twoHand) then
 					score = scoreRow(scoring, id, slot, wornLoc, row)
 				end
@@ -1089,6 +1208,145 @@ local function hoverText(link, gqText)
 	end
 	hoverCache[link] = text
 	return text or nil
+end
+
+-- La mano izquierda en el tooltip (pícaro, 1.4) ---------------------------------------------
+-- GearQuest pone el puesto de un arma de una mano en la lista de armas (la derecha) y la compara
+-- con lo que llevas en la derecha. Debajo va su puesto como arma de la izquierda y si es mejor o
+-- peor que lo que llevas en la izquierda, con la misma puntuación.
+local IZQ_TEXT = "Mano izquierda: puesto n.º %d de %d."
+local IZQ_MEJOR = "|cff40ff40Mejor que tu %s: +%s.|r"
+local IZQ_PEOR = "|cffff5050Peor que tu %s: -%s.|r"
+local IZQ_IGUAL = "Igual que tu %s."
+local IZQ_LLEVAS = "Es la que llevas en la izquierda."
+local IZQ_VACIA = "No llevas nada en la izquierda."
+local SIN_MUTILAR = "|cff9d9d9dNo es una daga: con ella no puedes usar Mutilar (pide dagas en las dos manos).|r"
+
+local function cacheAlDia()
+	local okKey, band = pcall(GQ.Data.GetActiveBandCacheKey, GQ.Data)
+	local key = version .. ":" .. (okKey and tostring(band) or "")
+	if key ~= hoverKey then
+		hoverCache, hoverKey = {}, key
+	end
+end
+
+-- La mejor nota de cada objeto en la lista de la izquierda de tu especialización, a tu nivel.
+local function izquierdas(scoring)
+	local cache = hoverCache.izq
+	if cache then return cache end
+	cache = {}
+	for _, e in ipairs(GQ.Data.entries or {}) do
+		if e.customSpec == scoring.specId and e.slot == "SecondaryHand" and type(e.pipelineScore) == "number"
+			and type(e.itemId) == "number" and GQ.Data.EntryMatchesPlayerBand and GQ.Data:EntryMatchesPlayerBand(e) then
+			local id = math.floor(e.itemId)
+			if not cache[id] or cache[id] < e.pipelineScore then cache[id] = e.pipelineScore end
+		end
+	end
+	hoverCache.izq = cache
+	return cache
+end
+
+-- Lo que llevas en la izquierda: { id, score }, { vacia = true } o nil si no se puede saber.
+local function izquierdaPuesta(scoring)
+	local cache = hoverCache.wornOff
+	if cache ~= nil then return cache or nil end
+	local result = false
+	local id = GetInventoryItemID and GetInventoryItemID("player", 17)
+	if id == nil then
+		result = { vacia = true }
+	elseif type(id) == "number" and not issecret(id) then
+		local _, loc = slotOfLink(id)
+		local row = (loc == "INVTYPE_WEAPON" or loc == "INVTYPE_WEAPONOFFHAND") and statsFromTooltip(17)
+		if row then
+			local ok, score = pcall(scoreRow, scoring, id, "SecondaryHand", loc, row)
+			if ok and type(score) == "number" then result = { id = id, score = score } end
+		end
+	end
+	hoverCache.wornOff = result
+	return result or nil
+end
+
+-- La nota del arma en la izquierda: con las estadísticas de su enlace (su sufijo de verdad) o,
+-- sin enlace, la de su fila de la izquierda en la lista.
+local function notaIzquierda(scoring, id, link, entry)
+	if link then
+		local row, req = statsFromLink(link)
+		if row and not (req and req > nivelActual()) then
+			local ok, score = pcall(scoreRow, scoring, id, "SecondaryHand", "INVTYPE_WEAPON", row)
+			if ok and type(score) == "number" then return score end
+		end
+	end
+	if entry and GQ.Data.GetEntriesByItemId then
+		local best
+		for _, e in ipairs(GQ.Data:GetEntriesByItemId(id) or {}) do
+			if e.customSpec == scoring.specId and e.slot == "SecondaryHand" and (e.suffix or "") == (entry.suffix or "")
+				and type(e.pipelineScore) == "number" and GQ.Data:EntryMatchesPlayerBand(e)
+				and (not best or e.pipelineScore > best) then
+				best = e.pipelineScore
+			end
+		end
+		return best
+	end
+end
+
+local function nombreDe(id)
+	local name = GetItemInfo and GetItemInfo(id)
+	if type(name) ~= "string" or issecret(name) then
+		name = GQ.Data.GetItemDisplayName and GQ.Data:GetItemDisplayName(id)
+	end
+	return type(name) == "string" and name or "arma de la izquierda"
+end
+
+-- Texto de la mano izquierda (o nil) y una nota aparte (o nil).
+local function lineaIzquierda(id, link, entry)
+	local classFile = playerClass()
+	if classFile ~= "ROGUE" or not (GQ.Spec and GQ.Spec.GetDisplaySpec) then return nil end
+	local scoring = scoringBy[GQ.Spec:GetDisplaySpec(classFile) or ""]
+	if not (scoring and scoring.record and PICARO.izquierda[scoring.record.base]) then return nil end
+	local _, equipLoc = slotOfLink(link or id)
+	if not (equipLoc == "INVTYPE_WEAPON" or equipLoc == "INVTYPE_WEAPONMAINHAND" or equipLoc == "INVTYPE_WEAPONOFFHAND") then
+		return nil
+	end
+	cacheAlDia()
+	local key = "izq:" .. tostring(link or id) .. ":" .. tostring(entry and entry.suffix or "")
+	local hit = hoverCache[key]
+	if hit ~= nil then return hit.text, hit.nota end
+	local text, nota
+	-- La línea de la izquierda, solo en las de una mano (las de solo una mano ya las compara GearQuest).
+	local score = equipLoc == "INVTYPE_WEAPON" and notaIzquierda(scoring, id, link, entry) or nil
+	if type(score) == "number" then
+		local rank, total, enLista = 1, 0, false
+		for other, s in pairs(izquierdas(scoring)) do
+			total = total + 1
+			if other == id then
+				enLista = true
+			elseif s > score + 0.005 then
+				rank = rank + 1
+			end
+		end
+		if not enLista then total = total + 1 end
+		text = string.format(IZQ_TEXT, rank, total)
+		local worn = izquierdaPuesta(scoring)
+		if worn and worn.vacia then
+			text = text .. " " .. IZQ_VACIA
+		elseif worn and worn.id == id then
+			text = text .. " " .. IZQ_LLEVAS
+		elseif worn then
+			local diff, name = score - worn.score, nombreDe(worn.id)
+			if diff >= 0.05 then
+				text = text .. " " .. string.format(IZQ_MEJOR, name, decimal1(diff))
+			elseif diff <= -0.05 then
+				text = text .. " " .. string.format(IZQ_PEOR, name, decimal1(-diff))
+			else
+				text = text .. " " .. string.format(IZQ_IGUAL, name)
+			end
+		end
+	end
+	if scoring.record.base == "assassination" and nivelActual() >= PICARO.nivelMutilar and not esDaga(id) then
+		nota = SIN_MUTILAR
+	end
+	hoverCache[key] = { text = text, nota = nota }
+	return text, nota
 end
 
 local function hookGearQuest()
@@ -1188,6 +1446,34 @@ local function hookGearQuest()
 		end
 		local band = job.bands and job.bands[faction .. "|" .. tostring(entry.minLevel or 1)]
 		return band and band.slots and band.slots[entry.slot or ""]
+	end
+	-- Pícaro (1.4): cada arma, con lo que vale en su mano y en tu rama. Va por dentro de los
+	-- sufijos y de la fila fantasma, así que cuenta en todas las filas: las de GearQuest, lo que
+	-- llevas puesto, todo lo que existe y el puesto calculado con el tooltip.
+	local consumeArma = GQ.Custom.Consume
+	if consumeArma then
+		GQ.Custom.Consume = function(self, job, entry, ...)
+			if not armaDePicaro(job, entry) then return consumeArma(self, job, entry, ...) end
+			local lista = listaDe(job, entry)
+			local n0 = lista and #lista or 0
+			consumeArma(self, job, entry, ...)
+			lista = lista or listaDe(job, entry)
+			local fila = lista and #lista == n0 + 1 and lista[#lista] or nil
+			if fila and fila.itemId == entry.itemId then ajustarArma(job, entry, fila) end
+		end
+	end
+	-- Un arma de una mano está en las dos listas. Donde GearQuest se queda con una sola fila por
+	-- objeto (la lista de armas que junta las dos manos, el tooltip), la de la derecha: la de la
+	-- izquierda vale menos y la hundiría en la lista. La izquierda tiene su línea en el tooltip.
+	local prefer = GQ.Data and GQ.Data.PreferEntry
+	if prefer then
+		GQ.Data.PreferEntry = function(self, a, b, ...)
+			if type(a) == "table" and type(b) == "table" and a.tuEquipoMano and b.tuEquipoMano
+				and a.tuEquipoMano ~= b.tuEquipoMano and a.customSpec == b.customSpec then
+				return a.tuEquipoMano == "MainHand"
+			end
+			return prefer(self, a, b, ...)
+		end
 	end
 	local consumeBase = GQ.Custom.Consume
 	if consumeBase then
@@ -1300,11 +1586,27 @@ local function hookGearQuest()
 		local ok, rolled = pcall(isRolled, entry.itemId, link)
 		return ok and rolled or false
 	end
+	-- La fila de la mano derecha del mismo objeto (pícaro, 1.4).
+	local function filaDerecha(self, entry)
+		if not self.GetEntriesByItemId then return nil end
+		local best
+		for _, e in ipairs(self:GetEntriesByItemId(math.floor(entry.itemId)) or {}) do
+			if e.customSpec == entry.customSpec and e.tuEquipoMano == "MainHand" and (e.suffix or "") == (entry.suffix or "")
+				and type(e.pipelineScore) == "number" and (not self.EntryMatchesPlayerBand or self:EntryMatchesPlayerBand(e))
+				and (not best or e.pipelineScore > best.pipelineScore) then
+				best = e
+			end
+		end
+		return best
+	end
 	local entryFor = GQ.Data and GQ.Data.EntryForItemLink
 	if entryFor then
 		GQ.Data.EntryForItemLink = function(self, link, ...)
 			local entry = entryFor(self, link, ...)
 			if entry and looseSuffix(entry, link) then return nil end
+			if entry and entry.tuEquipoMano == "SecondaryHand" then
+				return filaDerecha(self, entry) or entry
+			end
 			return entry
 		end
 	end
@@ -1332,6 +1634,41 @@ local function hookGearQuest()
 			end
 			return text
 		end
+	end
+	-- La mano izquierda (pícaro, 1.4): una línea más, debajo de la de GearQuest, en el tooltip
+	-- del objeto y al pasar por la lista.
+	local function anadirIzquierda(tooltip, id, link, entry)
+		if not (tooltip and tooltip.AddLine and tooltip.gqScoreLineAdded) or tooltip.tuEquipoIzq or not id then return end
+		local ok, text, nota = pcall(lineaIzquierda, id, link, entry)
+		if not ok or not (text or nota) then return end
+		if not tooltip.tuEquipoLimpia and tooltip.HookScript then
+			tooltip.tuEquipoLimpia = true
+			tooltip:HookScript("OnTooltipCleared", function(t) t.tuEquipoIzq = nil end)
+		end
+		tooltip.tuEquipoIzq = true
+		if text then tooltip:AddLine(text, 1, 0.82, 0, true) end
+		if nota then tooltip:AddLine(nota, 1, 1, 1, true) end
+	end
+	local function enlaceDe(tooltip, id)
+		if not (tooltip and tooltip.GetItem) then return nil end
+		local ok, _, link = pcall(tooltip.GetItem, tooltip)
+		if not ok or type(link) ~= "string" or issecret(link) then return nil end
+		if id and GQ.Data.ItemLinkToId and GQ.Data:ItemLinkToId(link) ~= id then return nil end
+		return link
+	end
+	if hooksecurefunc and GQ.Data and GQ.Data.AppendGearScoreLine then
+		hooksecurefunc(GQ.Data, "AppendGearScoreLine", function(_, tooltip, entry)
+			if type(entry) ~= "table" or type(entry.itemId) ~= "number" then return end
+			local id = math.floor(entry.itemId)
+			anadirIzquierda(tooltip, id, enlaceDe(tooltip, id), entry)
+		end)
+	end
+	if hooksecurefunc and GQ.Data and GQ.Data.AddGearScoreToItemTooltip then
+		hooksecurefunc(GQ.Data, "AddGearScoreToItemTooltip", function(self, tooltip)
+			local link = enlaceDe(tooltip, nil)
+			local id = link and self.ItemLinkToId and self:ItemLinkToId(link)
+			if id then anadirIzquierda(tooltip, id, link, nil) end
+		end)
 	end
 end
 hookGearQuest()
