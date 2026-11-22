@@ -33,9 +33,9 @@ nombres y las versiones de estos addons.
 
 Mayús + clic izquierdo en un montón de las bolsas abre siempre la ventanita para partirlo (elegir cuántos coger), también con Baganator. Si el objeto no se apila, lo avisa. Con el comercio abierto, la parte que eliges va sola al comercio (el juego, si no, daría el montón entero).
 
-### Buscador de equipo — `BuscadorEquipo` (versión 1.2.1)
+### Buscador de objetos — `BuscadorEquipo` (versión 1.3)
 
-Busca un objeto por su nombre y dice cómo se consigue (botín con porcentaje, misión, vendedor, fabricación) y qué nivel pide; con filtros de clase, especialización, hueco y nivel enseña los mejores de GearQuest para ese nivel.
+Busca cualquier objeto del juego por su nombre (equipo, materiales, consumibles, objetos de misión, recetas, monturas, mascotas…) y dice cómo se consigue (botín con porcentaje, misión, vendedor, fabricación), de qué tipo es y qué nivel pide; con filtros de clase, especialización, hueco y nivel enseña el mejor equipo de GearQuest para ese nivel.
 
 Usa (si los tienes): Polestar, GearQuestForever.
 
@@ -48,6 +48,18 @@ En un mercader, Alt + clic en un objeto abre una ventanita para comprar de golpe
 Deja siempre encendida la opción de Auctionator «Ejecutar escaneo automático al abrir la casa de subastas», para que el registro de precios se actualice solo.
 
 Necesita: Auctionator.
+
+### Limpiar misiones — `LimpiarMisiones` (versión 1.0)
+
+Deja plegado el panel de objetivos al entrar y al recargar, y pone un botón «Limpiar misiones» que enseña qué misiones del registro se han quedado atrás (por nivel, por zona o porque tu ruta de Polestar no las usa), con el motivo de cada una, para abandonarlas de una vez.
+
+Usa (si los tienes): Polestar.
+
+### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2)
+
+Pone en Polestar la probabilidad real de que cada enemigo suelte un objeto de misión (lo que miden en Forever los jugadores de EG Link y lo que te cae a ti, siempre con la misión cogida) y rellena la que Polestar no tiene. También la enseña al pasar el ratón por el enemigo.
+
+Necesita: Polestar.
 
 ### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.1)
 

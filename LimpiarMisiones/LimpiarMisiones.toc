@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: Limpiar misiones
+## Notes: Deja plegado el panel de objetivos al entrar y al recargar, y pone un botón «Limpiar misiones» que enseña qué misiones del registro se han quedado atrás (por nivel, por zona o porque tu ruta de Polestar no las usa), con el motivo de cada una, para abandonarlas de una vez.
+## Author: Huguillo
+## Version: 1.0
+## SavedVariables: HugoAddonsAvisoDB
+## OptionalDeps: Polestar
+## SavedVariablesPerCharacter: LimpiarMisionesDB
+
+LimpiarMisiones.lua
+AvisoGitHub.lua

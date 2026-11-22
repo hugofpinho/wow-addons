@@ -1,12 +1,15 @@
--- Buscador de equipo 1.2 (2026-11-18; 1.1: va por encima de GearQuest, fondo opaco, la lista ya no pisa el nivel;
--- 1.2: la ficha se desplaza con la rueda o su barra, con todas las fuentes, y el puesto de GearQuest se mira en el hueco del objeto)
+-- Buscador de objetos 1.3 (2026-11-18; 1.1: va por encima de GearQuest, fondo opaco, la lista ya no pisa el nivel;
+-- 1.2: la ficha se desplaza con la rueda o su barra, con todas las fuentes, y el puesto de GearQuest se mira en el hueco del objeto;
+-- 1.3, 2026-11-20: busca cualquier objeto del juego, también recetas, monturas, mascotas y tabardos, hasta 200
+-- resultados; la ficha dice de qué tipo es y solo habla de GearQuest si es equipo)
 --
 -- Una ventana con dos usos:
---  1. Buscar un objeto por su nombre (en español o en inglés). Al elegirlo dice cómo se
---     consigue: botín de qué bicho y con qué porcentaje, misión, vendedor y precio,
---     fabricación, botín del mundo… y qué nivel pide. Los datos son los del buscador de
---     Polestar (Polestar.Search, Polestar.Lookup.Sources, Polestar Codex); «Ver en Polestar»
---     abre su ficha, que además te lleva hasta allí.
+--  1. Buscar cualquier objeto por su nombre (en español o en inglés): equipo, materiales,
+--     consumibles, objetos de misión, recetas, monturas, mascotas, tabardos… Al elegirlo dice
+--     cómo se consigue: botín de qué bicho y con qué porcentaje, misión, vendedor y precio,
+--     fabricación, botín del mundo… de qué tipo es y qué nivel pide. Los datos son los del
+--     buscador de Polestar (Polestar.Search, Polestar.Lookup.Sources, Polestar Codex);
+--     «Ver en Polestar» abre su ficha, que además te lleva hasta allí.
 --  2. «Mejores»: con los filtros de clase (por defecto la tuya), especialización (por
 --     defecto la que usa GearQuest, que para el brujo es «Leveo Aflicción» de
 --     GearQuestLeveo), hueco y nivel enseña los mejores objetos de GearQuest para ese
@@ -14,7 +17,7 @@
 --     (también la especialización personalizada); para otra clase lee sus datos
 --     (GearQuestForever_<CLASE>) con la especialización de GearQuest elegida.
 -- Al pasar el ratón por una fila sale el tooltip del objeto; al pulsarla, cómo se consigue
--- y su puesto en GearQuest para el nivel del filtro.
+-- y, si es equipo, su puesto en GearQuest para el nivel del filtro.
 --
 -- Se abre con el botón «Buscador» (se puede arrastrar) o con su atajo (Opciones > Atajos >
 -- AddOns). Solo lee datos de Polestar y GearQuest y crea marcos propios.
@@ -57,10 +60,16 @@ local SOURCE_ES = { drop = "Botín", vendor = "Vendedor", quest = "Misión", cra
 	object = "Objeto", treasure = "Tesoro", container = "Contenedor", rep = "Reputación", pvp = "JcJ", gift = "Lo da un PNJ" }
 
 local _, PLAYER_CLASS = UnitClass("player")
+-- Todo lo que Polestar tiene por objeto: los corrientes («item») y los que guarda aparte.
+local ITEM_KINDS = { item = true, recipe = true, mount = true, pet = true, tabard = true }
+local KIND_ES = { recipe = "Receta", mount = "Montura", pet = "Mascota", tabard = "Tabardo" }
+local SEARCH_LIMIT = 200
+
 local state = {
 	mode = "search", -- "search" | "best"
 	query = "",
-	list = {}, -- filas: { id, name, quality, right }
+	list = {}, -- filas: { id, name, quality, right, kind }
+	kinds = {}, -- objeto -> "recipe" | "mount" | "pet" | "tabard" (los de la última búsqueda)
 	offset = 0,
 	selected = nil,
 	class = PLAYER_CLASS,
@@ -261,16 +270,32 @@ local EQUIP_TO_SLOT = {
 	INVTYPE_SHIELD = "SecondaryHand", INVTYPE_RANGED = "Ranged", INVTYPE_RANGEDRIGHT = "Ranged",
 	INVTYPE_THROWN = "Ranged", INVTYPE_RELIC = "Ranged",
 }
-local function slotOfItem(id)
+local function instant(id)
 	local getInstant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
-	local equipLoc = getInstant and ok(select(4, call(getInstant, id)))
+	if not getInstant then return nil end
+	local _, itemType, subType, equipLoc = call(getInstant, id)
+	return ok(itemType), ok(subType), ok(equipLoc)
+end
+local function slotOfItem(id)
+	local _, _, equipLoc = instant(id)
 	return equipLoc and EQUIP_TO_SLOT[equipLoc]
 end
 
+-- «Consumible · Poción», «Objeto comerciable · Paño», «Armadura · Tela»… como lo llama el juego.
+local function typeText(id)
+	local itemType, subType = instant(id)
+	if type(itemType) ~= "string" or itemType == "" then return nil end
+	if type(subType) == "string" and subType ~= "" and subType ~= itemType then return itemType .. " · " .. subType end
+	return itemType
+end
+
 -- Puesto en GearQuest en el hueco del propio objeto (un bastón se mira entre las armas
--- aunque el filtro diga «A distancia»). Devuelve puesto, nota y hueco mirado.
+-- aunque el filtro diga «A distancia»). Devuelve puesto, nota y hueco mirado; nada si el
+-- objeto no es equipo de un hueco que GearQuest puntúe (un paño, una poción, una camisa…).
 local function gqPlace(id)
-	local slot = slotOfItem(id) or state.slot
+	-- (En «Mejores» todo es equipo: si el juego no dice su hueco, vale el del filtro.)
+	local slot = slotOfItem(id) or (state.mode == "best" and state.slot) or nil
+	if not slot then return nil, nil, nil end
 	local list = bestFor(state.class, state.spec, slot, state.level)
 	for i, e in ipairs(list) do
 		if e.id == id then return i, e.score, slot end
@@ -345,7 +370,7 @@ border(frame, 0.75, 0.6, 0.2, 1)
 
 local title = text(frame, 15, 1, 0.82, 0)
 title:SetPoint("TOPLEFT", 12, -10)
-title:SetText("Buscador de equipo")
+title:SetText("Buscador de objetos")
 local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
 close:SetPoint("TOPRIGHT", 2, 2)
 close:SetScript("OnClick", function() frame:Hide() end)
@@ -362,7 +387,7 @@ box(search, 0, 0, 0, 0.7):SetAllPoints()
 border(search, 0.5, 0.5, 0.5, 1)
 local hint = text(search, 12, 0.5, 0.5, 0.5)
 hint:SetPoint("LEFT", 7, 0)
-hint:SetText("Escribe el nombre de un objeto…")
+hint:SetText("Nombre de cualquier objeto del juego…")
 
 -- Filtros
 local function cycler(labelText, x, y, width)
@@ -536,21 +561,35 @@ local function doSearch()
 		state.message = "Hace falta Polestar (su buscador) para buscar por nombre."
 		refresh() return
 	end
-	local results = call(p.Search.Query, q, { kinds = { item = true }, limit = 60, subtitles = true })
+	-- Todos los tipos de objeto de Polestar; perKind para que no recorte a 20 por tipo.
+	local results, counts = call(p.Search.Query, q, { kinds = ITEM_KINDS, limit = SEARCH_LIMIT, perKind = SEARCH_LIMIT, subtitles = false })
 	if type(results) ~= "table" then
 		state.message = "Polestar no ha podido buscar ahora (¿en combate?)."
 		refresh() return
 	end
+	state.kinds = {}
 	for _, r in ipairs(results) do
-		if r.kind == "item" and r.id then
-			state.list[#state.list + 1] = { id = tonumber(r.id), name = r.title, quality = r.quality,
-				right = r.status == "retired" and "ya no sale" or nil, sub = r.subtitle }
+		local id = ITEM_KINDS[r.kind] and tonumber(r.id)
+		if id then
+			local tags = {}
+			if KIND_ES[r.kind] then tags[#tags + 1] = KIND_ES[r.kind]; state.kinds[id] = r.kind end
+			if r.status == "retired" then tags[#tags + 1] = "ya no sale" end
+			state.list[#state.list + 1] = { id = id, name = r.title, quality = r.quality, kind = r.kind,
+				right = #tags > 0 and table.concat(tags, " · ") or nil }
 		end
 	end
 	if #state.list == 0 then
 		local codexOk, reason = true, nil
 		if p.Search.Status then codexOk, reason = call(p.Search.Status) end
 		state.message = codexOk == false and ("Los datos de Polestar no están cargados (" .. tostring(reason) .. ").") or "No hay objetos con ese nombre."
+	else
+		local total = 0
+		for kind, n in pairs(type(counts) == "table" and counts or {}) do
+			if ITEM_KINDS[kind] and type(n) == "number" then total = total + n end
+		end
+		if total > #state.list then
+			state.message = "Hay más de " .. #state.list .. " objetos con ese nombre: escribe algo más para afinar."
+		end
 	end
 	refresh()
 end
@@ -605,7 +644,12 @@ showDetail = function()
 	local q = itemQuality(id)
 	dTitle:SetText(qualityHex(q) .. itemName(id) .. "|r")
 	local lines = {}
-	local req, ilvl, equipLoc = requiredLevel(id)
+	local req, ilvl = requiredLevel(id)
+	local kind = KIND_ES[state.kinds[id]]
+	local tipo = typeText(id)
+	if kind and tipo and not tipo:find(kind, 1, true) then tipo = kind .. " · " .. tipo end
+	tipo = tipo or kind
+	if tipo then lines[#lines + 1] = "Tipo: " .. tipo end
 	local info = {}
 	info[#info + 1] = "Nivel requerido: " .. (req and req > 0 and tostring(req) or "ninguno")
 	if ilvl then info[#info + 1] = "nivel de objeto " .. ilvl end
@@ -613,13 +657,16 @@ showDetail = function()
 	lines[#lines + 1] = " "
 	lines[#lines + 1] = "|cff80c0ffCómo se consigue|r"
 	for _, l in ipairs(sourceLines(id)) do lines[#lines + 1] = l end
-	lines[#lines + 1] = " "
+	-- GearQuest solo puntúa equipo: de lo demás (materiales, consumibles, recetas…) no se dice nada.
 	local place, score, gqSlot = gqPlace(id)
-	local where = (CLASS_ES[state.class] or state.class) .. ", " .. specLabel(state.class, state.spec) .. ", " .. (SLOT_ES[gqSlot] or gqSlot) .. ", nivel " .. state.level
-	if place then
-		lines[#lines + 1] = "|cff80c0ffGearQuest|r (" .. where .. "): puesto n.º " .. place .. (score and (" · nota " .. num(score)) or "")
-	else
-		lines[#lines + 1] = "|cff80c0ffGearQuest|r (" .. where .. "): no está en su lista."
+	if gqSlot then
+		lines[#lines + 1] = " "
+		local where = (CLASS_ES[state.class] or state.class) .. ", " .. specLabel(state.class, state.spec) .. ", " .. (SLOT_ES[gqSlot] or gqSlot) .. ", nivel " .. state.level
+		if place then
+			lines[#lines + 1] = "|cff80c0ffGearQuest|r (" .. where .. "): puesto n.º " .. place .. (score and (" · nota " .. num(score)) or "")
+		else
+			lines[#lines + 1] = "|cff80c0ffGearQuest|r (" .. where .. "): no está en su lista."
+		end
 	end
 	dBody:SetText(table.concat(lines, "\n"))
 	layoutDetail()
@@ -697,7 +744,7 @@ polestarBtn:SetScript("OnClick", function()
 		-- Este buscador va por encima de casi todo: se cierra para que la ficha de Polestar
 		-- no quede debajo. Al volver a abrirlo sigue con la misma búsqueda.
 		frame:Hide()
-		call(p.Lookup.Show, nil, "item", state.selected)
+		call(p.Lookup.Show, nil, state.kinds[state.selected] or "item", state.selected)
 	end
 end)
 
@@ -737,7 +784,7 @@ end)
 function BuscadorEquipo_Abrir()
 	if frame:IsShown() then frame:Hide() else frame:Show() end
 end
-BINDING_HEADER_BUSCADOREQUIPO = "Buscador de equipo"
+BINDING_HEADER_BUSCADOREQUIPO = "Buscador de objetos"
 BINDING_NAME_BUSCADOREQUIPO_ABRIR = "Abrir o cerrar el buscador"
 SLASH_BUSCADOREQUIPO1 = "/buscador"
 SlashCmdList.BUSCADOREQUIPO = BuscadorEquipo_Abrir
@@ -754,8 +801,8 @@ opener:SetScript("OnDragStop", opener.StopMovingOrSizing)
 opener:SetScript("OnClick", BuscadorEquipo_Abrir)
 opener:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText("Buscador de equipo")
-	GameTooltip:AddLine("Busca un objeto y dice cómo se consigue, o enseña los mejores de GearQuest por hueco y nivel.", 1, 1, 1, true)
+	GameTooltip:SetText("Buscador de objetos")
+	GameTooltip:AddLine("Busca cualquier objeto del juego y dice cómo se consigue, o enseña el mejor equipo de GearQuest por hueco y nivel.", 1, 1, 1, true)
 	GameTooltip:AddLine("Arrástralo para moverlo.", 0.7, 0.7, 0.7, true)
 	GameTooltip:Show()
 end)
