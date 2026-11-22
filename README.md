@@ -62,7 +62,7 @@ Pone en Polestar la probabilidad real de que cada enemigo suelte un objeto de mi
 
 Necesita: Polestar.
 
-### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.2.2)
+### GearQuest: con tu equipo — `GearQuestTuEquipo` (versión 1.3)
 
 Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel de tu rama (la eliges al entrar o en GearQuest → Ajustes → Pesos y especialización, también la de tu segunda especialización, y cambia sola al cambiar de especialización). En la lista entra además todo lo que existe para tu clase y tu nivel, no solo lo que trae GearQuest; lo que llevas puesto entra con su sufijo de verdad (también los sufijos nuevos de Forever), y lo que mires fuera de la lista tiene en el tooltip el puesto que tendría y si es mejor o peor que lo que llevas.
 

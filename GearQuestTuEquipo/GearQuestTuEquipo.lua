@@ -1,4 +1,11 @@
--- GearQuest: con tu equipo 1.2 (2026-11-22)
+-- GearQuest: con tu equipo 1.3 (2026-11-22)
+--
+-- 1.3: los objetos de sufijo aleatorio salen dos veces. Con su mejor sufijo, como lo pone
+--   GearQuest («Cinta real de ira de las sombras», la n.º 1 si te toca), pero diciendo que es
+--   SOLO con ese sufijo y cuántas veces sale; y sin sufijo («Cinta real»), con la nota media de
+--   todos sus sufijos, que es lo que vale la que te cae normalmente. La aclaración va en la
+--   línea «Encantamiento aleatorio» del tooltip y de la ficha.
+--   Pesos nuevos: brujo de Aflicción completos y chamán de Mejora (fuerza por delante).
 --
 -- 1.2:
 --   · Todo lo que existe. GearQuest trae unas decenas de objetos por hueco y nivel. Ahora, en
@@ -641,7 +648,7 @@ local function addEquipped(custom, job)
 								-- por objeto en cada lista, y la que cuenta es la tuya.
 								for i = #list, 1, -1 do
 									local other = list[i]
-									if other.itemId == item.id then
+									if type(other.itemId) == "number" and math.floor(other.itemId) == item.id then
 										if other.suffix and other.suffix ~= "" and GQ.Data.EntrySuffixMatchesLink
 											and GQ.Data:EntrySuffixMatchesLink(other, link) then
 											present[band.level] = true
@@ -1118,8 +1125,124 @@ local function hookGearQuest()
 				print("|cffff8800GearQuest: con tu equipo|r: no he podido añadir objetos (" .. tostring(err) .. ").")
 			end
 			version = version + 1
+			-- Las filas «con su mejor sufijo» recuperan su número de objeto (ver arriba) y el índice
+			-- de GearQuest se rehace con los números buenos.
+			local res = { finish(self, job, ...) }
+			local entries, arregladas = GQ.Data and GQ.Data.entries, 0
+			for i = entries and #entries or 0, 1, -1 do
+				local e = entries[i]
+				if e.customSpec ~= job.specId then break end
+				if e.tuEquipoRaro and type(e.itemId) == "number" and e.itemId % 1 ~= 0 then
+					e.itemId = math.floor(e.itemId)
+					arregladas = arregladas + 1
+				end
+			end
+			if arregladas > 0 then
+				if GQ.Data.BuildIndex then pcall(GQ.Data.BuildIndex, GQ.Data) end
+				if GQ.Data.InvalidateQueryCache then pcall(GQ.Data.InvalidateQueryCache, GQ.Data) end
+			end
+			return unpack(res)
 		end
 		return finish(self, job, ...)
+	end
+
+	-- Sufijos aleatorios: dos filas por objeto. GearQuest (ScorePiece) se queda con el mejor de los
+	-- sufijos de GQ.Data.itemRolls[objeto] = { { n = nombre, c = % de salir, r = texto,
+	-- <estadística> = cantidad… }, … }, aunque salga 1 de cada 25 veces. Aquí cada objeto de
+	-- sufijo aleatorio entra dos veces:
+	--   · con su mejor sufijo, como lo pone GearQuest, pero marcado: «solo con este sufijo»;
+	--   · sin sufijo, con la nota media de todos sus sufijos según su probabilidad (lo que te
+	--     toca de media al conseguirlo). Para eso se le da a GearQuest, en vez de la lista, un
+	--     único «sufijo» sin nombre con la media (cada estadística × su probabilidad): la nota
+	--     es lineal en las estadísticas, así que sale la nota media.
+	-- GearQuest solo deja una fila por número de objeto en cada lista (Finish): la del mejor
+	-- sufijo lleva el número + 0,5 hasta que Finish acaba, y ahí se le devuelve el suyo.
+	local medias = {}
+	local function media(id, rolls)
+		local hit = medias[id]
+		if hit and hit.de == rolls then return hit.lista end
+		local total = 0
+		for i = 1, #rolls do total = total + (tonumber(rolls[i].c) or 0) end
+		local divisor = math.max(100, total) -- si las probabilidades conocidas no llegan a 100, el resto no suma
+		local m = {}
+		for i = 1, #rolls do
+			local prob = (tonumber(rolls[i].c) or 0) / divisor
+			for key, value in pairs(rolls[i]) do
+				if type(value) == "number" and key ~= "c" and key ~= "id" then m[key] = (m[key] or 0) + value * prob end
+			end
+		end
+		local lista = { m }
+		medias[id] = { de = rolls, lista = lista }
+		return lista
+	end
+	-- La lista del trabajo donde GearQuest mete la fila de `entry` (misma clave que usa Consume).
+	local function listaDe(job, entry)
+		local faction = "Both"
+		if entry.factions then
+			local names = {}
+			for name, on in pairs(entry.factions) do
+				if on then names[#names + 1] = name end
+			end
+			table.sort(names)
+			if names[1] then faction = table.concat(names, "/") end
+		end
+		local band = job.bands and job.bands[faction .. "|" .. tostring(entry.minLevel or 1)]
+		return band and band.slots and band.slots[entry.slot or ""]
+	end
+	local consumeBase = GQ.Custom.Consume
+	if consumeBase then
+		GQ.Custom.Consume = function(self, job, entry, ...)
+			local rolls = GQ.Data and GQ.Data.itemRolls
+			local suyos = rolls and type(entry) == "table" and entry.itemId and rolls[entry.itemId]
+			if not suyos or not (type(job) == "table" and job.record and job.specId and job.classFile == playerClass()) then
+				return consumeBase(self, job, entry, ...)
+			end
+			local id = entry.itemId
+			-- 1) Con su mejor sufijo, como lo hace GearQuest.
+			local lista = listaDe(job, entry)
+			local n0 = lista and #lista or 0
+			consumeBase(self, job, entry, ...)
+			lista = lista or listaDe(job, entry)
+			local mejor = lista and #lista == n0 + 1 and lista[#lista] or nil
+			if not (mejor and mejor.itemId == id and mejor.suffix and mejor.suffix ~= "") then return end
+			-- 2) Con la media de sus sufijos.
+			rolls[id] = media(id, suyos)
+			local ok, err = pcall(consumeBase, self, job, entry, ...)
+			rolls[id] = suyos
+			if not ok then error(err, 0) end
+			local med = #lista == n0 + 2 and lista[#lista] or nil
+			if not (med and med.itemId == id) then return end
+			if (med.pipelineScore or 0) >= (mejor.pipelineScore or 0) - 0.05 then
+				table.remove(lista) -- la media no dice nada distinto: una sola fila
+				return
+			end
+			med.suffix, med.suffixId, med.suffixChance, med.suffixRange = nil, nil, nil, nil
+			med.tuEquipoMedia = { sufijo = mejor.suffix, prob = mejor.suffixChance, nota = mejor.pipelineScore }
+			mejor.tuEquipoRaro = { media = med.pipelineScore }
+			mejor.itemId = id + 0.5
+		end
+	end
+	-- La aclaración va en la línea «Encantamiento aleatorio» de GearQuest (tooltip y ficha).
+	local function nota1(n) return (string.format("%.1f", tonumber(n) or 0):gsub("%.", ",")) end
+	if GQ.Data and GQ.Data.GetSuffixHint then
+		local hintBase = GQ.Data.GetSuffixHint
+		GQ.Data.GetSuffixHint = function(self, entry, ...)
+			local hint = hintBase(self, entry, ...)
+			if type(entry) ~= "table" then return hint end
+			local raro, med = entry.tuEquipoRaro, entry.tuEquipoMedia
+			if raro and hint then
+				return hint .. ". SOLO con este sufijo: con cualquier otro vale menos (de media, nota "
+					.. nota1(raro.media) .. " frente a " .. nota1(entry.pipelineScore) .. "). También está en la lista sin sufijo, con esa nota media"
+			elseif med then
+				local L = GQ.L or {}
+				local nombre = med.sufijo and (L[med.sufijo] or med.sufijo) or "?"
+				return "ninguno en concreto. Esta fila es la nota media de sus sufijos (" .. nota1(entry.pipelineScore)
+					.. "): lo que te toca de media. Con «" .. tostring(nombre) .. "»"
+					.. (med.prob and (" (sale ~" .. tostring(med.prob) .. " % de las veces)") or "")
+					.. " tendría nota " .. nota1(med.nota) .. ": esa variante tiene su propia fila"
+			end
+			return hint
+		end
 	end
 
 	-- Lo añadido, a trozos, por la «fila fantasma» (1.2).
