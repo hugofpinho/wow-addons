@@ -1,4 +1,20 @@
--- GearQuest: con tu equipo 1.1 (2026-11-19)
+-- GearQuest: con tu equipo 1.2 (2026-11-22)
+--
+-- 1.2:
+--   · Todo lo que existe. GearQuest trae unas decenas de objetos por hueco y nivel. Ahora, en
+--     el tramo de tu nivel de cada hueco, entra además todo lo que puedes llevar a tu nivel: lo
+--     de las tablas de estadísticas de GearQuest y, si tienes Polestar, lo de su Polestar_ItemDB
+--     (sin lo que la revisión de Forever de GearQuest da por inexistente, lo de otras clases ni
+--     lo que es solo de la otra facción). Qué tipos de armadura y de arma entran en cada hueco
+--     lo dice el propio GearQuest: los que ya lista para tu clase en ese hueco.
+--   · Sufijos de Forever. En Forever el sufijo aleatorio («de cólera de las Sombras») va en el
+--     enlace como «bonus», no en el campo clásico, que es el único que mira GearQuest: una
+--     pieza con sufijo se puntuaba como el objeto pelado. Ahora cuenta como «con sufijo» por el
+--     campo clásico, por el nombre o por llevar bonus, y su puesto sale de su tooltip. El
+--     puesto calculado dice además si es mejor o peor que lo que llevas en ese hueco.
+--   · Sin congelar el juego. Añadir todo esto se hacía de una vez al cerrar GearQuest su
+--     puntuación (más de un segundo parado). Ahora va a trozos de 3 ms, por el mismo sitio por
+--     el que GearQuest reparte lo suyo (una «fila fantasma» al final de sus filas).
 --
 -- Para cualquier clase. Sobre GearQuest Forever:
 --
@@ -46,8 +62,17 @@ local CRIT_UNIT, HIT_UNIT = 14, 10
 --   brujo: según la rama (Aflicción drena y remata, 0,5).
 --   Brujo: el intelecto llena la reserva de maná igual que el aguante la de vida, que Life Tap
 --   convierte 1 a 1 (0,5).
---   Aflicción lleva Suppression, que quita los fallos contra tu nivel: golpe 0,2 (2 por 1 %).
---   Cuerpo a cuerpo, cazadores, tanques y sanadores: los de GearQuest.
+--   Brujo de Aflicción (1.2): los pesos completos de un plan de subida con Drenar vida de
+--   relleno y la varita solo para rematar, sacados estadística por estadística de guías de
+--   Forever (Crix, Skill Capped, Warcraft Tavern). 1 punto = 1 de daño de Sombras; aguante,
+--   intelecto y espíritu 0,5 (vida y maná son el combustible de Transfusión de vida); Fuego
+--   0,2 (solo Inmolar); varita 0,3 por punto de daño por segundo. Como van todos escritos, no
+--   pasan por el multiplicador de subida de nivel de GearQuest.
+--   Chamán de Mejora (1.2): las guías de subida de Forever (wow.gg, Warcraft Tavern, Icy Veins)
+--   coinciden en arma a dos manos y en poner la fuerza por delante de la agilidad; GearQuest
+--   trae la agilidad por delante (pesos de banda). Se cambian solo esas dos; daño del arma,
+--   golpe y crítico se quedan como los trae GearQuest. Las guías no coinciden en el resto.
+--   Cuerpo a cuerpo (salvo eso), cazadores, tanques y sanadores: los de GearQuest.
 local LEVELING = {
 	MAGE = {
 		arcane = { crit = 0.2, hit = 0.4, dpsWeightRanged = 1 },
@@ -63,12 +88,20 @@ local LEVELING = {
 		discipline = { dpsWeightRanged = 2.5 },
 	},
 	WARLOCK = {
-		affliction = { crit = 0.25, hit = 0.2, int = 0.5, dpsWeightRanged = 0.5 },
+		affliction = {
+			sp = 1, spShadow = 1, spFire = 0.2, spFrost = 0, spArcane = 0, spNature = 0, spHoly = 0,
+			spi = 0.5, sta = 0.5, int = 0.5, mp5 = 0.8, armor = 0.01,
+			crit = 4 / CRIT_UNIT, hit = 1 / HIT_UNIT, haste = 1 / CRIT_UNIT,
+			health = 0.05, hp5 = 0.1, mana = 0.033, resist = 0,
+			str = 0, agi = 0, ap = 0, rap = 0, defense = 0, dodge = 0, parry = 0,
+			heal = 0, sp_from_heal = 0,
+			dpsWeight = 0, dpsWeightRanged = 0.3, speedWeight = 0,
+		},
 		demonology = { crit = 0.2, hit = 0.4, int = 0.5, dpsWeightRanged = 1 },
 		destruction = { crit = 0.3, hit = 0.4, int = 0.5, dpsWeightRanged = 0.7 },
 	},
 	DRUID = { balance = { crit = 0.2, hit = 0.4 } },
-	SHAMAN = { elemental = { crit = 0.25, hit = 0.4 } },
+	SHAMAN = { elemental = { crit = 0.25, hit = 0.4 }, enhancement = { str = 1, agi = 0.75 } },
 }
 local function levelingFor(classFile, base)
 	local byClass = LEVELING[classFile]
@@ -428,8 +461,23 @@ local function statsFromLink(link)
 	return statsFromLines(data.lines)
 end
 
-local builtSig = {}   -- por especialización: firma del equipo con el que se puntuó
+local builtSig = {}   -- por especialización: firma (equipo y nivel) con la que se puntuó
 local tooltipReq = {} -- nivel requerido leído del tooltip, por objeto
+local UNLISTED = "No está en las listas de GearQuest: lo ha añadido «GearQuest: con tu equipo»."
+
+-- Reparto entre fotogramas (1.2). Lo pesado corre en una corrutina; `deadline` es hasta cuándo
+-- puede seguir en este fotograma (debugprofilestop, en ms). Sin `deadline` (el camino de una
+-- vez) respirar() no hace nada. `dentro`: este addon está mandando sus filas a GQ.Custom:Consume.
+local SLICE_MS = 3
+local deadline
+local dentro = false
+local function respirar()
+	if deadline and debugprofilestop() >= deadline then coroutine.yield() end
+end
+
+local function nivelActual()
+	return (GQ.GetEffectiveLevel and GQ:GetEffectiveLevel()) or (UnitLevel and UnitLevel("player")) or 1
+end
 
 local function newEntry(classFile, base, template, fact, item, lo, hi, factions, suffix)
 	local e
@@ -442,8 +490,13 @@ local function newEntry(classFile, base, template, fact, item, lo, hi, factions,
 				if fact[key] ~= nil then e[key] = fact[key] end
 			end
 		end
+		if not e.sourceType then
+			e.sourceType = "unsourced"
+			e.instructions = UNLISTED
+		end
 		e.hand = item.hand or handOf(item.id)
 	end
+	e.tuEquipoAll = item.all or nil
 	e.id = "tuequipo:" .. item.id .. ":" .. item.slot .. ":" .. lo .. (suffix and suffix ~= "" and (":" .. suffix) or "")
 	e.slot = item.slot
 	e.minLevel, e.maxLevel = lo, hi
@@ -499,6 +552,27 @@ local function suffixOf(id, link)
 	return nil
 end
 
+-- Número de «bonus» del enlace (campo 13 de «item:…»). En Forever el sufijo aleatorio es un bonus.
+local function bonusCount(link)
+	local fields = type(link) == "string" and link:match("item:([%-%d:]+)")
+	if not fields then return 0 end
+	local i = 0
+	for field in (fields .. ":"):gmatch("([^:]*):") do
+		i = i + 1
+		if i == 13 then return tonumber(field) or 0 end
+	end
+	return 0
+end
+
+-- ¿La pieza de este enlace lleva sufijo aleatorio? Por el campo clásico del enlace, por el
+-- nombre (más largo que el del objeto base) o por llevar bonus.
+local function isRolled(id, link)
+	if type(link) ~= "string" then return false end
+	if GQ.Data.SuffixIdFromLink and GQ.Data:SuffixIdFromLink(link) then return true end
+	if suffixOf(id, link) then return true end
+	return bonusCount(link) > 0
+end
+
 -- Antes de GQ.Custom:Finish, con las filas de la especialización ya puntuadas y
 -- repartidas por tramos (job.bands), sin ordenar todavía.
 local function addEquipped(custom, job)
@@ -506,8 +580,7 @@ local function addEquipped(custom, job)
 	if not (job and job.record and job.classFile == classFile and job.specId) then return end
 	if not (GQ.Data and GQ.Data.CopyEntry and custom.Consume) then return end
 	local base = job.record.base
-	local items, sig = equipped()
-	builtSig[job.specId] = sig
+	local items = equipped()
 	if #items == 0 or not base then return end
 	local stats = job.stats or GQ.Data.itemStats or {}
 	job.stats = stats
@@ -515,7 +588,8 @@ local function addEquipped(custom, job)
 	local wanted = {}
 	for _, item in ipairs(items) do wanted[item.id .. "|" .. item.slot] = true end
 	local templates = {}
-	for _, e in ipairs(job.entries or {}) do
+	for i, e in ipairs(job.entries or {}) do
+		if i % 500 == 0 then respirar() end
 		local id = e and e.itemId
 		if id and not e.customSpec then
 			local key = id .. "|" .. tostring(e.slot)
@@ -531,11 +605,12 @@ local function addEquipped(custom, job)
 
 	local done = {}
 	for _, item in ipairs(items) do
+		respirar()
 		local key = item.id .. "|" .. item.slot
 		if not done[key] then
 			done[key] = true
 			local link = equippedLink(item.inv)
-			local rolled = link and GQ.Data.SuffixIdFromLink and GQ.Data:SuffixIdFromLink(link)
+			local rolled = link and isRolled(item.id, link)
 			local row, tipReq
 			if rolled then
 				-- Con sufijo: sus estadísticas de verdad, sacadas del tooltip.
@@ -608,32 +683,337 @@ local LOC_SLOT = {
 	INVTYPE_HOLDABLE = "SecondaryHand", INVTYPE_RANGED = "Ranged", INVTYPE_RANGEDRIGHT = "Ranged",
 	INVTYPE_THROWN = "Ranged", INVTYPE_RELIC = "Ranged",
 }
-local HOVER_TEXT = "Puesto n.º %d de %d para tu nivel (%s; calculado con su tooltip, no está en la lista)."
+local HOVER_TEXT = "Puesto n.º %d de %d para tu nivel (%s; calculado con su tooltip)."
+local HOVER_BETTER = "|cff40ff40Mejor que lo que llevas: +%s.|r"
+local HOVER_WORSE = "|cffff5050Peor que lo que llevas: -%s.|r"
+local HOVER_SAME = "Igual que lo que llevas."
 local scoringBy = {} -- por especialización: lo necesario para puntuar un objeto suelto
 local version = 0
 local hoverCache, hoverKey = {}, nil
 
-local function scoreLink(scoring, link, id)
+-- Todo lo que existe (1.2) --------------------------------------------------------------
+
+-- Clase en las máscaras de clase de los objetos.
+local CLASS_BIT = { WARRIOR = 1, PALADIN = 2, HUNTER = 4, ROGUE = 8, PRIEST = 16, SHAMAN = 64, MAGE = 128, WARLOCK = 256, DRUID = 1024 }
+-- Estadísticas de Polestar_ItemDB → las de GearQuest. Crítico y golpe vienen en % y GearQuest
+-- los cuenta en sus unidades. Un objeto con una estadística que no esté aquí no se añade:
+-- mejor que falte a que salga mal puntuado.
+local PS_KEY = {
+	armor = "armor", sta = "sta", int = "int", spi = "spi", str = "str", agi = "agi",
+	sp = "damageDone", heal = "heal", spShadow = "spShadow", spFire = "spFire", spFrost = "spFrost",
+	spArcane = "spArcane", spNature = "spNature", spHoly = "spHoly", spellHit = "spellHit",
+	spellCrit = "spellCrit", crit = "crit", hit = "hit", mp5 = "mp5", hp5 = "hp5",
+	defense = "defense", dodge = "dodge", parry = "parry", ap = "ap", rap = "rap",
+	blockValue = "blockValue", block = "blockPct", dps = "dps",
+}
+local PS_UNIT = { spellCrit = CRIT_UNIT, crit = CRIT_UNIT, spellHit = HIT_UNIT, hit = HIT_UNIT }
+local ARMOR_KIND = { [1] = "Cloth", [2] = "Leather", [3] = "Mail", [4] = "Plate", [7] = "Libram", [8] = "Idol", [9] = "Totem" }
+
+-- Hueco, tipo de equipo y «clase de objeto» (armadura de tela, espada de una mano…: clase y
+-- subclase del juego en un número) de un objeto, o nil si no se equipa o el juego no lo conoce.
+local function kindOf(id)
 	local getInstant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
 	if not getInstant then return nil end
-	local okInfo, _, _, _, equipLoc = pcall(getInstant, link)
-	local slot = okInfo and LOC_SLOT[equipLoc]
-	if not slot then return nil end
-	local row, req = statsFromLink(link)
-	if not row then return nil end
-	local level = (GQ.GetEffectiveLevel and GQ:GetEffectiveLevel()) or 1
-	if req and req > level then return nil end
+	local ok, _, _, _, equipLoc, _, classID, subclassID = pcall(getInstant, id)
+	if not ok then return nil end
+	local slot = LOC_SLOT[equipLoc]
+	if not slot or type(classID) ~= "number" or type(subclassID) ~= "number" then return nil end
+	return slot, equipLoc, classID * 100 + subclassID
+end
+
+-- Polestar_ItemDB trae las estadísticas de todos los objetos que se pueden equipar, pero no
+-- deja listarlos: se apuntan sus números al registrarse (es un addon que se carga a petición).
+local polestarIds
+local catalog, catalogKinds -- lo que puedes llevar, y con qué clases de objeto se hizo la lista
+local function watchPolestar()
+	local DB = _G.Polestar and _G.Polestar.ItemDB
+	if not (DB and DB.Register) or DB._tuEquipoWatch then return end
+	DB._tuEquipoWatch = true
+	if DB.IsLoaded and DB.IsLoaded() then return end -- ya cargado: no se puede listar
+	local register = DB.Register
+	DB.Register = function(m, items, ...)
+		if type(items) == "table" then
+			polestarIds = polestarIds or {}
+			for id in pairs(items) do
+				if type(id) == "number" then polestarIds[id] = true end
+			end
+			catalog = nil
+		end
+		return register(m, items, ...)
+	end
+end
+watchPolestar()
+
+local function rowFromPolestar(rec)
+	local row, any = {}, false
+	for key, value in pairs(rec.stats or {}) do
+		if type(value) == "number" and value ~= 0 then
+			local mine = PS_KEY[key]
+			if not mine then return nil end
+			row[mine] = value * (PS_UNIT[key] or 1)
+			any = true
+		end
+	end
+	if not any then return nil end
+	if rec.speed then row.spd = rec.speed / 1000 end
+	if rec.class == 4 then row.kind = ARMOR_KIND[rec.subclass] end
+	row.ilvl = rec.ilvl
+	return row
+end
+
+-- ¿Lo puede conseguir tu facción? Polestar sabe de qué misiones sale cada recompensa y de qué
+-- bando es cada misión. Si no sabe nada, lo que GearQuest solo lista para la otra facción no entra.
+local OTHER_SIDE = { Alliance = 2, Horde = 1 }
+local function factionOk(DB, id, classFile)
+	local faction = UnitFactionGroup and UnitFactionGroup("player")
+	local other = OTHER_SIDE[faction]
+	if not other then return true end
+	if DB and DB.Sources and polestarIds and polestarIds[id] then
+		local ok, sources = pcall(DB.Sources, id)
+		if ok and type(sources) == "table" and sources[1] then
+			for _, src in ipairs(sources) do
+				if src.kind ~= "quest" or src.side ~= other then return true end
+			end
+			return false
+		end
+	end
+	local okRows, otherRows = false, nil
+	if GQ.Data.UnexpandedRowSpecs then okRows, otherRows = pcall(GQ.Data.UnexpandedRowSpecs, GQ.Data, id) end
+	if okRows and otherRows then
+		local rows = GQ.Data.GetEntriesByItemId and GQ.Data:GetEntriesByItemId(id) or {}
+		for _, e in ipairs(rows) do
+			if not e.customSpec and e.classes and e.classes[classFile] then return true end
+		end
+		return false
+	end
+	return true
+end
+
+-- Todo lo que existe de las clases de objeto `kinds` y que tu clase y tu facción pueden tener.
+local function buildCatalog(classFile, kinds)
+	local list, seen = {}, {}
+	local stats = GQ.Data.itemStats or {}
+	local DB = _G.Polestar and _G.Polestar.ItemDB
+	local band = bit and bit.band
+	local classBit = CLASS_BIT[classFile]
+	local function consider(id)
+		if seen[id] then return end
+		seen[id] = true
+		local slot, equipLoc, kind = kindOf(id)
+		if not slot or not kinds[kind] then return end
+		-- GearQuest tiene revisado qué objetos del clásico no existen en Forever: esos fuera. De
+		-- lo que solo trae Polestar, entra lo que esa revisión da por bueno y lo nuevo de Forever.
+		local okStatus, status = false, nil
+		if GQ.Data.GetForeverStatus then okStatus, status = pcall(GQ.Data.GetForeverStatus, GQ.Data, id) end
+		if okStatus and status == "missing" then return end
+		if not stats[id] and status ~= "ok" and id < 200000 then return end
+		local rec = polestarIds and polestarIds[id] and DB and DB.Get and DB.Get(id) or nil
+		if rec and band and classBit and rec.allow and rec.allow ~= 0 and band(rec.allow, classBit) == 0 then return end
+		if not factionOk(DB, id, classFile) then return end
+		local row
+		if not stats[id] then
+			if not rec then return end
+			-- Polestar se equivoca con el daño de los objetos nuevos de Forever que sanan.
+			if id >= 200000 and rec.stats and rec.stats.heal then return end
+			row = rowFromPolestar(rec)
+			if not row then return end
+		end
+		local fact = GQ.Data.GetItemFact and GQ.Data:GetItemFact(id)
+		local req = tonumber(fact and fact.reqLevel)
+		if not req or req <= 1 then req = rec and rec.req end
+		if not req or req <= 1 then
+			-- Sin nivel requerido (las recompensas de misión): el de la misión, más o menos.
+			local ilvl = (stats[id] and stats[id].ilvl) or (rec and rec.ilvl)
+			req = ilvl and math.max(1, ilvl - 5) or 1
+		end
+		list[#list + 1] = { id = id, slot = slot, hand = HAND_OF[equipLoc], req = req, row = row, kind = kind, all = true }
+	end
+	-- Primero solo los números (rápido, de una vez: las tablas no cambian a mitad); después se
+	-- mira cada objeto, soltando el fotograma cuando toca.
+	local ids = {}
+	for id in pairs(stats) do
+		if type(id) == "number" then ids[#ids + 1] = id end
+	end
+	if polestarIds then
+		for id in pairs(polestarIds) do ids[#ids + 1] = id end
+	end
+	for i = 1, #ids do
+		consider(ids[i])
+		if i % 25 == 0 then respirar() end
+	end
+	return list
+end
+
+-- Todo lo demás que existe y puedes llevar a tu nivel, en el tramo que te toca de cada hueco.
+local kindNum = {} -- clase de objeto de los que GearQuest lista (false: no se sabe)
+local function addAll(custom, job, level)
+	local classFile, base = job.classFile, job.record and job.record.base
+	if not (classFile and base and job.bands and GQ.Data and custom.Consume) then return 0 end
+	local DB = _G.Polestar and _G.Polestar.ItemDB
+	if DB and DB._tuEquipoWatch and not polestarIds and DB.Load and not (DB.IsLoaded and DB.IsLoaded()) then
+		pcall(DB.Load)
+	end
+	-- Qué clases de objeto lista GearQuest para tu clase en cada hueco, en los tramos que
+	-- cubren tu nivel: solo de esas se añade (un guerrero de nivel 42 no recibe túnicas ni
+	-- varitas, aunque GearQuest le listara tela a nivel 5).
+	local allowed, union, n = {}, {}, 0
+	for _, band in pairs(job.bands) do
+		if band.level <= level then
+			for slot, list in pairs(band.slots) do
+				local hi = band.level
+				for i = 1, #list do
+					local m = list[i].maxLevel
+					if type(m) == "number" and m > hi then hi = m end
+				end
+				if hi >= level then
+					local a = allowed[slot]
+					if not a then a = {}; allowed[slot] = a end
+					for i = 1, #list do
+						local id = list[i].itemId
+						local kind = kindNum[id]
+						if kind == nil then
+							local _, _, k = kindOf(id)
+							kind = k or false
+							kindNum[id] = kind
+						end
+						if kind then a[kind] = true; union[kind] = true end
+						n = n + 1
+						if n % 100 == 0 then respirar() end
+					end
+				end
+			end
+		end
+	end
+	if not next(union) then return 0 end
+	local falta = not catalog
+	for kind in pairs(union) do
+		if not (catalogKinds and catalogKinds[kind]) then falta = true end
+	end
+	if falta then
+		local kinds = {}
+		for kind in pairs(catalogKinds or {}) do kinds[kind] = true end
+		for kind in pairs(union) do kinds[kind] = true end
+		local built = buildCatalog(classFile, kinds)
+		catalog, catalogKinds = built, kinds
+	end
+	-- Por hueco, el tramo que cubre tu nivel (el que empieza más tarde, como GearQuest).
+	local bySlot = {}
+	for _, band in pairs(job.bands) do
+		if band.level <= level then
+			for slot, list in pairs(band.slots) do
+				if list[1] then
+					local hi = band.level
+					for i = 1, #list do
+						local m = list[i].maxLevel
+						if type(m) == "number" and m > hi then hi = m end
+					end
+					local cur = bySlot[slot]
+					if hi >= level and (not cur or band.level > cur.band.level
+						or (band.level == cur.band.level and #list > #cur.list)) then
+						bySlot[slot] = { band = band, list = list, hi = hi }
+					end
+				end
+			end
+		end
+	end
+	for _, t in pairs(bySlot) do
+		t.have = {}
+		for i = 1, #t.list do t.have[t.list[i].itemId] = true end
+		t.factions = t.list[1].factions
+	end
+	local added = 0
+	for _, item in ipairs(catalog) do
+		respirar()
+		local t = item.req <= level and bySlot[item.slot]
+		if t and not t.have[item.id] and allowed[item.slot] and allowed[item.slot][item.kind] then
+			t.have[item.id] = true
+			local fact = GQ.Data.GetItemFact and GQ.Data:GetItemFact(item.id)
+			consumeWith(custom, job, newEntry(classFile, base, nil, fact, item, t.band.level, t.hi, t.factions, nil), item.row)
+			added = added + 1
+		end
+	end
+	return added
+end
+
+-- Puesto calculado -------------------------------------------------------------------------
+
+-- Nota de un objeto con estas estadísticas, puntuado como las filas de la lista.
+local function scoreRow(scoring, id, slot, equipLoc, row)
+	local level = nivelActual()
 	local job = {
 		record = scoring.record, classFile = scoring.classFile, specId = scoring.specId,
 		armorClass = scoring.armorClass, weightsAt = scoring.weightsAt, bands = {}, stats = {},
 	}
 	local e = newEntry(scoring.classFile, scoring.record.base, nil, nil,
 		{ id = id, slot = slot, hand = HAND_OF[equipLoc] }, level, level, nil, nil)
-	consumeWith(GQ.Custom, job, e, row)
+	local antes = dentro
+	dentro = true
+	local ok, err = pcall(consumeWith, GQ.Custom, job, e, row)
+	dentro = antes
+	if not ok then error(err, 0) end
 	for _, band in pairs(job.bands) do
 		local list = band.slots[slot]
-		if list and list[1] then return list[1].pipelineScore, slot end
+		if list and list[1] then return list[1].pipelineScore end
 	end
+end
+
+local function slotOfLink(x)
+	local getInstant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+	if not getInstant then return nil end
+	local okInfo, _, _, _, equipLoc = pcall(getInstant, x)
+	local slot = okInfo and LOC_SLOT[equipLoc]
+	if not slot then return nil end
+	return slot, equipLoc
+end
+
+local function scoreLink(scoring, link, id)
+	local slot, equipLoc = slotOfLink(link)
+	if not slot then return nil end
+	local row, req = statsFromLink(link)
+	if not row then return nil end
+	local level = nivelActual()
+	if req and req > level then return nil end
+	return scoreRow(scoring, id, slot, equipLoc, row), slot, equipLoc
+end
+
+-- Nota de lo que llevas en ese hueco, con las estadísticas de su tooltip (la más baja si hay
+-- dos: anillos y abalorios, que es la que cambiarías). nil si no hay con qué comparar: un
+-- hueco vacío, o un arma de otro tipo (una mano contra tu arma a dos manos).
+local function wornScore(scoring, slot, equipLoc)
+	local cache = hoverCache.worn
+	if not cache then
+		cache = {}
+		hoverCache.worn = cache
+	end
+	local twoHand = HAND_OF[equipLoc] == "two"
+	local key = slot .. (twoHand and ":2" or ":1")
+	if cache[key] ~= nil then return cache[key] or nil end
+	local worst, complete = nil, true
+	for inv = 1, 18 do
+		if SLOT_OF[inv] == slot then
+			local id = GetInventoryItemID and GetInventoryItemID("player", inv)
+			local score
+			if type(id) == "number" and not issecret(id) then
+				local wornSlot, wornLoc = slotOfLink(id)
+				local row = statsFromTooltip(inv)
+				if wornSlot == slot and row and (slot ~= "MainHand" or (HAND_OF[wornLoc] == "two") == twoHand) then
+					score = scoreRow(scoring, id, slot, wornLoc, row)
+				end
+			end
+			if type(score) ~= "number" then
+				complete = false
+			elseif not worst or score < worst then
+				worst = score
+			end
+		end
+	end
+	local result = complete and worst or nil
+	cache[key] = result or false
+	return result
+end
+
+local function decimal1(n)
+	return (string.format("%.1f", n):gsub("%.", ","))
 end
 
 local function scoresFor(scoring, slot)
@@ -679,7 +1059,7 @@ local function hoverText(link, gqText)
 	end
 	local hit = hoverCache[link]
 	if hit ~= nil then return hit or nil end
-	local ok, score, slot = pcall(scoreLink, scoring, link, id)
+	local ok, score, slot, equipLoc = pcall(scoreLink, scoring, link, id)
 	local text = false
 	if ok and type(score) == "number" then
 		local list = scoresFor(scoring, slot)
@@ -688,6 +1068,17 @@ local function hoverText(link, gqText)
 			if list[i] > score then rank = rank + 1 else break end
 		end
 		text = string.format(HOVER_TEXT, rank, #list + 1, scoring.record.name or "?")
+		local okWorn, worn = pcall(wornScore, scoring, slot, equipLoc)
+		if okWorn and type(worn) == "number" then
+			local diff = score - worn
+			if diff >= 0.05 then
+				text = text .. " " .. string.format(HOVER_BETTER, decimal1(diff))
+			elseif diff <= -0.05 then
+				text = text .. " " .. string.format(HOVER_WORSE, decimal1(-diff))
+			else
+				text = text .. " " .. HOVER_SAME
+			end
+		end
 	end
 	hoverCache[link] = text
 	return text or nil
@@ -696,21 +1087,103 @@ end
 local function hookGearQuest()
 	if GQ.Custom._tuEquipoHooked or leveoPresent() then return end
 	GQ.Custom._tuEquipoHooked = true
+	local function nuestro(job)
+		return type(job) == "table" and job.record and job.specId and job.bands and job.classFile == playerClass()
+	end
 	local finish = GQ.Custom.Finish
 	GQ.Custom.Finish = function(self, job, ...)
-		if job and job.record and job.specId and job.classFile == playerClass() then
+		if nuestro(job) then
+			-- Lo añadido ya está hecho a trozos (la fila fantasma, abajo) si su estado es de estas mismas listas.
+			local st = job._tuEquipo
+			local hecho = st and st.done and st.bands == job.bands
+			local level = (hecho and st.level) or nivelActual()
+			local _, sig = equipped()
+			builtSig[job.specId] = sig .. "|" .. tostring(level)
 			scoringBy[job.specId] = {
 				record = job.record, classFile = job.classFile, specId = job.specId,
 				armorClass = job.armorClass, weightsAt = job.weightsAt,
 			}
+			local ok, err
+			if hecho then
+				ok, err = not st.err, st.err
+			else
+				local antes = dentro
+				dentro = true
+				ok, err = pcall(addEquipped, self, job)
+				if ok then ok, err = pcall(addAll, self, job, level) end
+				dentro = antes
+			end
+			if not ok and not self._tuEquipoWarned then
+				self._tuEquipoWarned = true
+				print("|cffff8800GearQuest: con tu equipo|r: no he podido añadir objetos (" .. tostring(err) .. ").")
+			end
 			version = version + 1
 		end
-		local ok, err = pcall(addEquipped, self, job)
-		if not ok and not self._tuEquipoWarned then
-			self._tuEquipoWarned = true
-			print("|cffff8800GearQuest: con tu equipo|r: no he podido añadir tu equipo (" .. tostring(err) .. ").")
-		end
 		return finish(self, job, ...)
+	end
+
+	-- Lo añadido, a trozos, por la «fila fantasma» (1.2).
+	-- GearQuest (Pump) hace, hasta pasarse de 12 ms:  fila = la de job.i;  Consume(job, fila);
+	-- job.i = job.i + 1;  y cuando job.i pasa de job.count, cierra (Finish) en esa misma
+	-- llamada. Aquí se envuelve Consume: en un trabajo de tu clase que lleva Pump (job.i
+	-- numérico y es el trabajo en curso) se sube job.count en 1; al llegar a esa posición (da
+	-- igual qué fila le pase GearQuest: no existe) se hace un trozo de lo de aquí en una
+	-- corrutina y se baja job.i en 1 para que vuelva a la misma posición. Al acabar se devuelve
+	-- job.count a su valor y GearQuest cierra. `dentro` evita tomar por fantasma las filas que
+	-- este addon manda a Consume.
+	local consume = GQ.Custom.Consume
+	if consume and type(debugprofilestop) == "function" and type(coroutine) == "table" and coroutine.create then
+		GQ.Custom.Consume = function(self, job, entry, ...)
+			if dentro or type(job) ~= "table" or type(job.i) ~= "number" or type(job.count) ~= "number"
+				or self._job ~= job or not nuestro(job) then
+				return consume(self, job, entry, ...)
+			end
+			local st = job._tuEquipo
+			if not st or st.bands ~= job.bands or (not st.done and st.hold ~= job.count) then
+				-- Trabajo nuevo, o GearQuest ha rehecho sus listas o su cuenta: fila fantasma al final.
+				st = { bands = job.bands }
+				job._tuEquipo = st
+				job.count = job.count + 1
+				st.hold = job.count
+			end
+			if st.done or job.i ~= st.hold then return consume(self, job, entry, ...) end
+			if not st.co then
+				st.level = nivelActual()
+				st.co = coroutine.create(function()
+					addEquipped(self, job)
+					addAll(self, job, st.level)
+				end)
+			end
+			dentro = true
+			deadline = debugprofilestop() + SLICE_MS
+			local ok, err = coroutine.resume(st.co)
+			deadline = nil
+			dentro = false
+			if ok and coroutine.status(st.co) ~= "dead" then
+				st.slices = (st.slices or 0) + 1
+				job.i = job.i - 1 -- GearQuest le suma 1 al volver: se queda en la fila fantasma
+				return
+			end
+			st.done, st.err = true, (not ok) and err or nil
+			job.count = job.count - 1 -- la cuenta de verdad: GearQuest ve que ha acabado y cierra
+		end
+	end
+
+	-- Una pieza con sufijo aleatorio no vale con la ficha del objeto pelado: se deja sin ficha
+	-- y el puesto sale de su tooltip, por el camino de abajo.
+	local function looseSuffix(entry, link)
+		if not entry or (entry.suffix and entry.suffix ~= "") then return false end
+		if not (entry.customSpec and scoringBy[entry.customSpec]) then return false end
+		local ok, rolled = pcall(isRolled, entry.itemId, link)
+		return ok and rolled or false
+	end
+	local entryFor = GQ.Data and GQ.Data.EntryForItemLink
+	if entryFor then
+		GQ.Data.EntryForItemLink = function(self, link, ...)
+			local entry = entryFor(self, link, ...)
+			if entry and looseSuffix(entry, link) then return nil end
+			return entry
+		end
 	end
 	-- «Sin puesto para c:1» → «Sin puesto para Fuego leveo»; y lo que puedes llevar y no está en
 	-- la lista, con el puesto que tendría.
@@ -718,7 +1191,12 @@ local function hookGearQuest()
 		local miss = GQ.Data.GearScoreMissText
 		GQ.Data.GearScoreMissText = function(self, link, ...)
 			local text = miss(self, link, ...)
-			if text then
+			local forced = false
+			if not text and entryFor then
+				local okEntry, entry = pcall(entryFor, self, link)
+				forced = okEntry and looseSuffix(entry, link) or false
+			end
+			if text or forced then
 				local ok, mine = pcall(hoverText, link, text)
 				if ok and mine then return mine end
 			end
@@ -744,7 +1222,7 @@ local function rescoreIfGearChanged()
 	if not (current and GQ.Custom:Get(classFile, current)) then return end
 	if not (GQ.Custom._built and GQ.Custom._built[current]) then return end -- aún no puntuada
 	local _, sig = equipped()
-	if sig == "" or sig == builtSig[current] then return end
+	if sig == "" or (sig .. "|" .. tostring(nivelActual())) == builtSig[current] then return end
 	if InCombatLockdown and InCombatLockdown() then
 		waitingCombat = true
 		return
@@ -943,13 +1421,19 @@ end
 local f = CreateFrame("Frame")
 for _, event in ipairs({ "PLAYER_LOGIN", "PLAYER_TALENT_UPDATE", "TRAIT_CONFIG_UPDATED",
 	"ACTIVE_TALENT_GROUP_CHANGED", "CHARACTER_POINTS_CHANGED",
-	"PLAYER_EQUIPMENT_CHANGED", "PLAYER_REGEN_ENABLED" }) do
+	"PLAYER_EQUIPMENT_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_LEVEL_UP", "ADDON_LOADED" }) do
 	pcall(f.RegisterEvent, f, event)
 end
-f:SetScript("OnEvent", function(_, event)
+f:SetScript("OnEvent", function(_, event, arg1)
+	if event == "ADDON_LOADED" then
+		if arg1 == "Polestar" then watchPolestar() end
+		return
+	end
 	if leveoPresent() and not GQ.Custom._tuEquipoHooked then return end
 	if event == "PLAYER_EQUIPMENT_CHANGED" then
 		gearLater(2)
+	elseif event == "PLAYER_LEVEL_UP" then
+		gearLater(3) -- otro tramo de nivel: lo que entra a tu nivel cambia
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if waitingCombat then
 			waitingCombat = false
