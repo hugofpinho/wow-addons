@@ -67,4 +67,8 @@ Para cualquier clase: GearQuest puntúa tu equipo con pesos de subida de nivel d
 
 Necesita: GearQuestForever.
 
+### DoesItDiePlus (con dos correcciones) — `UsefulPlatesAndTooltips` (versión 0.9.140 de Ironship)
+
+Información en las placas de nombre y en los tooltips: daño de los hechizos, marcas de DoTs, sanación entrante, escudos, comparación de equipo y números en las barras. Es el addon de Ironship con dos correcciones para WoW Forever. No es mío: es una copia modificada del [addon original](https://www.curseforge.com/wow/addons/doesitdieplus), con su misma licencia. Qué cambia: [COPIA-MODIFICADA.md](UsefulPlatesAndTooltips/COPIA-MODIFICADA.md). No lleva el aviso de versiones nuevas.
+
 <!-- /addons -->
