@@ -2,7 +2,7 @@
 ## Title: Polestar: probabilidad real
 ## Notes: Pone en Polestar la probabilidad real de que cada enemigo suelte un objeto de misión (lo que miden en Forever los jugadores de EG Link y lo que te cae a ti, siempre con la misión cogida) y rellena la que Polestar no tiene. También la enseña al pasar el ratón por el enemigo.
 ## Author: Huguillo
-## Version: 1.2.3
+## Version: 1.2.4
 ## Dependencies: Polestar
 ## SavedVariables: PolestarProbabilidadDB, HugoAddonsAvisoDB
 

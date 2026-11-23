@@ -54,7 +54,7 @@ Necesita: Auctionator.
 
 Deja plegado el panel de objetivos al entrar y al recargar, y lo vuelve a plegar si el juego lo despliega solo; si lo despliegas tú, se queda así hasta la próxima carga. (Hasta la 1.0 traía también un botón «Limpiar misiones»: se quitó porque Polestar ya lo hace con su ventana «Haz sitio en tu registro de misiones».)
 
-### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2.3)
+### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2.4)
 
 Pone en Polestar la probabilidad real de que cada enemigo suelte un objeto de misión (lo que miden en Forever los jugadores de EG Link y lo que te cae a ti, siempre con la misión cogida) y rellena la que Polestar no tiene. También la enseña al pasar el ratón por el enemigo.
 

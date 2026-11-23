@@ -5,7 +5,7 @@
 -- [objeto] = { [enemigo] = { caídas a solas, muertes a solas, caídas en grupo, muertes en grupo } }
 -- (solo muertes de quien tenía la misión)
 PolestarProbabilidad_Datos = {
-	fecha = "2026-11-22",
+	fecha = "2026-11-23",
 	commit = "5d76a9e5bbba",
 	versiones = 15,
 	objetos = {
