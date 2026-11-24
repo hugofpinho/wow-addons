@@ -1,6 +1,6 @@
 # DoesItDiePlus (con dos correcciones)
 
-Esta carpeta es una **copia modificada** de [UsefulPlatesAndTooltips](https://www.curseforge.com/wow/addons/doesitdieplus), de Ironship (versión 0.9.140). No es la versión oficial: la oficial está en ese enlace.
+Esta carpeta es una **copia modificada** de [UsefulPlatesAndTooltips](https://www.curseforge.com/wow/addons/doesitdieplus), de Ironship (versión 0.9.141). No es la versión oficial: la oficial está en ese enlace.
 
 Licencia: GPL-3.0-or-later (archivo LICENSE); el módulo SpellDamageInfo, además, MIT (Modules/SpellDamageInfo/LICENSE-SpellDamageInfo.txt). Esta copia se distribuye bajo la misma licencia.
 
