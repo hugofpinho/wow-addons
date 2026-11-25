@@ -14,12 +14,13 @@
 -- Si alguien tiene una versión más nueva de un addon que tú tienes, sale el aviso: una
 -- línea en el chat y una ventanita con el enlace para copiarlo. Y si el que va atrasado es
 -- el otro, se lo dices tú (una vez por persona y sesión). Lo que se sabe se guarda 14 días,
--- así que el aviso sale en cada entrada hasta que actualices, aunque no haya nadie.
+-- así que el aviso sale hasta que actualices, aunque no haya nadie: una vez cada vez que
+-- abres el juego, no en cada recarga de la interfaz (versión 4, 2026-11-24).
 --
 -- Solo se mandan los nombres y versiones de estos addons. Nada más.
 
 local ADDON = ...
-local LIB_VERSION = 3
+local LIB_VERSION = 4
 local URL = "github.com/hugofpinho/wow-addons"
 local PREFIX = "HugoAddons"
 local HELLO_GAP, HELLO_DELAY, KEEP_DAYS = 1800, 20, 14
@@ -101,8 +102,28 @@ end
 -- El aviso
 ---------------------------------------------------------------------------
 
-local shownThisSession = {}
 local popup
+
+-- Lo ya avisado en esta partida (desde que se abre el juego hasta que se cierra), guardado en
+-- HugoAddonsAvisoDB para que una recarga no lo repita. La hora de arranque sale de
+-- GetSessionTime (segundos desde que se abrió el juego) y PLAYER_ENTERING_WORLD dice si la
+-- carga es una recarga (lib.recarga).
+local function arranque()
+	if type(GetSessionTime) ~= "function" then return nil end
+	local okS, s = pcall(GetSessionTime)
+	if okS and type(s) == "number" and s >= 0 then return now() - s end
+end
+local function vistosEnPartida(d)
+	if lib.vistos then return lib.vistos end
+	local a = arranque()
+	local misma = lib.recarga == true or (a ~= nil and tonumber(d.arranque) ~= nil and math.abs(a - d.arranque) <= 120)
+	if not misma or type(d.vistos) ~= "table" then
+		d.vistos = {}
+		if not misma or not d.arranque then d.arranque = a end
+	end
+	lib.vistos = d.vistos
+	return d.vistos
+end
 
 local function title(name)
 	return meta(name, "Title") or name
@@ -169,11 +190,12 @@ local function notify()
 	local d = db()
 	local have = mine()
 	local lines, fresh = {}, false
+	local vistos = vistosEnPartida(d)
 	for name, info in pairs(d.latest) do
 		local v = type(info) == "table" and info.v
 		if have[name] and v and newer(v, have[name]) and now() - (tonumber(info.at) or 0) < KEEP_DAYS * 86400 then
 			lines[#lines + 1] = title(name) .. ": tienes " .. have[name] .. ", hay " .. v
-			if not shownThisSession[name .. v] then fresh = true; shownThisSession[name .. v] = true end
+			if not vistos[name .. v] then fresh = true; vistos[name .. v] = true end
 		elseif not (have[name] and v and newer(v, have[name])) and have[name] then
 			d.latest[name] = nil -- ya está al día
 		end
@@ -347,12 +369,14 @@ end
 
 local frame = lib.frame or CreateFrame("Frame")
 lib.frame = frame
-for _, e in ipairs({ "PLAYER_LOGIN", "CHAT_MSG_ADDON", "BN_CHAT_MSG_ADDON", "GROUP_JOINED" }) do
+for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "CHAT_MSG_ADDON", "BN_CHAT_MSG_ADDON", "GROUP_JOINED" }) do
 	pcall(frame.RegisterEvent, frame, e)
 end
 if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix, PREFIX) end
 frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
-	if event == "PLAYER_LOGIN" then
+	if event == "PLAYER_ENTERING_WORLD" then
+		if lib.recarga == nil then lib.recarga = a2 == true end -- a2 = isReloadingUi (solo la primera)
+	elseif event == "PLAYER_LOGIN" then
 		C_Timer.After(5, notify)
 		-- La lista de miembros de una comunidad llega cuando se le pide: se pide antes de anunciar.
 		C_Timer.After(8, function()

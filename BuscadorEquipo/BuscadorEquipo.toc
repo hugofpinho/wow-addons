@@ -2,7 +2,7 @@
 ## Title: Buscador de objetos
 ## Notes: Busca cualquier objeto del juego por su nombre (equipo, materiales, consumibles, objetos de misión, recetas, monturas, mascotas…) y dice cómo se consigue (botín con porcentaje, misión, vendedor, fabricación), de qué tipo es y qué nivel pide; con filtros de clase, especialización, hueco y nivel enseña el mejor equipo de GearQuest para ese nivel.
 ## Author: Huguillo
-## Version: 1.3.2
+## Version: 1.3.3
 ## SavedVariables: HugoAddonsAvisoDB
 ## OptionalDeps: Polestar, GearQuestForever, GearQuestLeveo
 

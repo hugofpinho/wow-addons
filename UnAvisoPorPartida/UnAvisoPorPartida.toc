@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: Un aviso por partida
+## Notes: Los avisos de «hay una versión nueva» de Polestar, GearQuest, OpenMap y Dungeon Journal salen una sola vez cada vez que abres el juego, no en cada recarga de la interfaz.
+## Author: Huguillo
+## Version: 1.0.0
+## OptionalDeps: Polestar, GearQuestForever, OpenMap, ForeverDungeonJournal
+## SavedVariables: UnAvisoPorPartidaDB, HugoAddonsAvisoDB
+
+UnAvisoPorPartida.lua
+AvisoGitHub.lua

@@ -2,7 +2,7 @@
 ## Title: Panel de objetivos plegado
 ## Notes: Deja plegado el panel de objetivos al entrar y al recargar, y lo vuelve a plegar si el juego lo despliega solo; si lo despliegas tú, se queda así hasta la próxima carga. (Hasta la 1.0 traía también un botón «Limpiar misiones»: se quitó porque Polestar ya lo hace con su ventana «Haz sitio en tu registro de misiones».)
 ## Author: Huguillo
-## Version: 1.1.0
+## Version: 1.1.1
 ## SavedVariables: HugoAddonsAvisoDB
 ## SavedVariablesPerCharacter: LimpiarMisionesDB
 
