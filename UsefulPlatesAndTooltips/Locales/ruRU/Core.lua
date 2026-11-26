@@ -45,6 +45,7 @@ BIT.RegisterLocale("ruRU", {
   ["Hunter only. Settings are here for an alt."] = "Только для охотников. Настройки доступны и для другого персонажа.",
 
   -- окно настроек
+  ["Settings"] = "Настройки",
   ["Enable %s"] = "Включить %s",
   ["Reload UI"] = "Перезагрузить интерфейс",
   ["Reset module"] = "Сбросить модуль",
@@ -63,6 +64,8 @@ BIT.RegisterLocale("ruRU", {
   ["Switched off after a reload of the interface."] = "Выключится после перезагрузки интерфейса.",
   ["Its settings are here while it runs; its appearance and a sample preview are below -- they need no module runtime. Tick Enable to open the settings before the next reload."] =
     "Настройки доступны здесь, пока модуль работает; его оформление и пример ниже доступны и без запущенного модуля. Отметьте «Включить», чтобы открыть настройки до следующей перезагрузки.",
+  ["This module is switched off. Tick Enable above to open its settings and live preview before the next reload."] =
+    "Этот модуль выключен. Отметьте «Включить» выше, чтобы открыть его настройки и предпросмотр до следующей перезагрузки.",
   ["%s is switched off. /upt opens the settings, where it can be switched on."] =
     "%s выключен. Введите /upt, чтобы открыть настройки и включить его.",
   ["%s/%s: tabs"] = "%s/%s: вкладки",
@@ -171,6 +174,7 @@ BIT.RegisterLocale("ruRU", {
 
   -- панель оформления
   ["Appearance"] = "Оформление",
+  ["APPEARANCE"] = "ОФОРМЛЕНИЕ",
   ["Advanced"] = "Дополнительно",
   ["Hide advanced"] = "Скрыть дополнительные настройки",
   ["Editing: this module"] = "Настройка: этот модуль",
@@ -601,4 +605,60 @@ BIT.RegisterLocale("ruRU", {
     "Настройки скопированы из «%s» в «%s». Введите /reload для применения.",
   ["/upt profile opens Profiles; /upt profile list|char|default|use <name>|new <name>|copy <name>|delete <name>"] =
     "/upt profile открывает вкладку «Профили»; /upt profile list|char|default|use <имя>|new <имя>|copy <имя>|delete <имя>",
+
+  -- журнал ошибок вкладки отладки
+  ["Clear"] = "Очистить",
+  ["Test"] = "Тест",
+  ["Errors and blocked actions of this addon (%d)"] = "Ошибки и заблокированные действия этого аддона (%d)",
+  ["Nothing caught since the last reload. Lua errors and \"blocked action\" reports that name this addon appear here with their stack."] =
+    "С последней перезагрузки ничего не поймано. Ошибки Lua и сообщения о заблокированных действиях, упоминающие этот аддон, появятся здесь со стеком вызовов.",
+  ["SPELL NUMBERS (SPELLDAMAGEINFO)"] = "ЧИСЛА ЗАКЛИНАНИЙ (SPELLDAMAGEINFO)",
+  ["DOTS (DOTINFO)"] = "ПЕРИОДИЧЕСКИЙ УРОН (DOTINFO)",
+  ["CAST PREDICTION"] = "ПРОГНОЗ ЗАКЛИНАНИЙ",
+  ["HEAL PREDICTION"] = "ПРОГНОЗ ИСЦЕЛЕНИЯ",
+  ["STATS AND BAG ARROWS (STATSINFO)"] = "ХАРАКТЕРИСТИКИ И СТРЕЛКИ СУМОК (STATSINFO)",
+  ["POINTS AND SOUNDS (RESOURCEDING)"] = "ОЧКИ И ЗВУКИ (RESOURCEDING)",
+  ["RANGE"] = "ДАЛЬНОСТЬ",
+  ["PERFORMANCE"] = "ПРОИЗВОДИТЕЛЬНОСТЬ",
+  ["FRAMES AND API"] = "РАМКИ И API",
+
+  -- общие заголовки разделов вкладок
+  ["FILL"] = "ЗАЛИВКА",
+  ["OUTLINE"] = "КОНТУР",
+  ["KILL ICON"] = "ЗНАЧОК УБИЙСТВА",
+  ["ABSORB NUMBER"] = "ЧИСЛО ПОГЛОЩЕНИЯ",
+  ["POSITION"] = "ПОЛОЖЕНИЕ",
+  ["INDICATORS"] = "ИНДИКАТОРЫ",
+  ["FEATURES"] = "ФУНКЦИИ",
+  ["EXPERIMENTS (ON BY DEFAULT IN THIS BETA)"] = "ЭКСПЕРИМЕНТЫ (В ЭТОЙ БЕТЕ ВКЛЮЧЕНЫ ПО УМОЛЧАНИЮ)",
+
+  -- переключатель стиля значков и группы значков убийства
+  ["Art style"] = "Стиль значков",
+  ["Style: %s"] = "Стиль: %s",
+  ["Art style: %s."] = "Стиль значков: %s.",
+  ["Art style: %s. /upt art 2d | pixel | classic"] = "Стиль значков: %s. /upt art 2d | pixel | classic",
+  ["Stylized 2D"] = "Стилизованный 2D",
+  ["Pixel Art"] = "Пиксель-арт",
+  ["Switches Soul Shards, combo orbs, range marks, upgrade arrows and markers between Stylized 2D, Pixel Art and Classic. Takes effect at once."] =
+    "Переключает осколки души, сферы серии, метки дальности, стрелки улучшений и маркеры между стилизованным 2D, пиксель-артом и классикой. Действует сразу.",
+  ["Faceted skull"] = "Гранёный череп",
+  ["Lethal crosshair"] = "Смертельный прицел",
+  ["Execution blades"] = "Клинки казни",
+  ["Crystal checkmark"] = "Кристальная галочка",
+  ["Crystal cross"] = "Кристальный крест",
+  ["Pixel skull"] = "Пиксельный череп",
+  ["Pixel crosshair"] = "Пиксельный прицел",
+  ["Pixel blades"] = "Пиксельные клинки",
+  ["Pixel checkmark"] = "Пиксельная галочка",
+  ["Pixel cross"] = "Пиксельный крест",
+  ["Show what execute/finisher is watched and test its icon for 5 seconds."] =
+    "Показать отслеживаемую способность добивания и проверить её значок в течение 5 секунд.",
+  ["Manage profiles..."] = "Управление профилями...",
+  ["Click to switch profile or manage character profiles."] =
+    "Нажмите, чтобы переключить профиль или управлять профилями персонажей.",
+  ["Changes saved. Type /reload to apply."] = "Изменения сохранены. Введите /reload для применения.",
+  ["Profile \"%s\" reset to defaults. Type /reload to apply."] =
+    "Профиль \"%s\" сброшен к стандартным настройкам. Введите /reload для применения.",
+  ["%s settings reset to defaults. Type /reload to apply."] =
+    "Настройки %s сброшены к стандартным. Введите /reload для применения.",
 })

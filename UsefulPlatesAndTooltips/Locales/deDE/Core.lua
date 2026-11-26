@@ -45,6 +45,7 @@ BIT.RegisterLocale("deDE", {
   ["Hunter only. Settings are here for an alt."] = "Nur für Jäger. Die Einstellungen stehen hier für einen Zweitcharakter.",
 
   -- the window
+  ["Settings"] = "Einstellungen",
   ["Enable %s"] = "%s aktivieren",
   ["Reload UI"] = "UI neu laden",
   ["Reset module"] = "Modul zurücksetzen",
@@ -63,6 +64,8 @@ BIT.RegisterLocale("deDE", {
   ["Switched off after a reload of the interface."] = "Wird nach einem Neuladen der Oberfläche ausgeschaltet.",
   ["Its settings are here while it runs; its appearance and a sample preview are below -- they need no module runtime. Tick Enable to open the settings before the next reload."] =
     "Seine Einstellungen stehen hier, solange es läuft; sein Aussehen und eine Beispielvorschau stehen unten -- sie brauchen keine Modullaufzeit. Setzt das Häkchen bei Aktivieren, um die Einstellungen schon vor dem nächsten Neuladen zu öffnen.",
+  ["This module is switched off. Tick Enable above to open its settings and live preview before the next reload."] =
+    "Dieses Modul ist ausgeschaltet. Setzt oben das Häkchen bei Aktivieren, um seine Einstellungen und die Live-Vorschau schon vor dem nächsten Neuladen zu öffnen.",
   ["%s is switched off. /upt opens the settings, where it can be switched on."] =
     "%s ist ausgeschaltet. /upt öffnet die Einstellungen, in denen es eingeschaltet werden kann.",
   ["%s/%s: tabs"] = "%s/%s: Reiter",
@@ -170,6 +173,7 @@ BIT.RegisterLocale("deDE", {
 
   -- the appearance panel
   ["Appearance"] = "Aussehen",
+  ["APPEARANCE"] = "AUSSEHEN",
   ["Advanced"] = "Erweitert",
   ["Hide advanced"] = "Erweitert ausblenden",
   ["Editing: this module"] = "Bearbeitet: dieses Modul",
@@ -600,4 +604,60 @@ BIT.RegisterLocale("deDE", {
     "Einstellungen von „%s“ nach „%s“ kopiert. Mit /reload anwenden.",
   ["/upt profile opens Profiles; /upt profile list|char|default|use <name>|new <name>|copy <name>|delete <name>"] =
     "/upt profile öffnet Profile; /upt profile list|char|default|use <Name>|new <Name>|copy <Name>|delete <Name>",
+
+  -- the Debug tab error log
+  ["Clear"] = "Leeren",
+  ["Test"] = "Testen",
+  ["Errors and blocked actions of this addon (%d)"] = "Fehler und blockierte Aktionen dieses Addons (%d)",
+  ["Nothing caught since the last reload. Lua errors and \"blocked action\" reports that name this addon appear here with their stack."] =
+    "Seit dem letzten Neuladen wurde nichts abgefangen. Lua-Fehler und Meldungen über „blockierte Aktionen“, die dieses Addon nennen, erscheinen hier mit ihrem Stack.",
+  ["SPELL NUMBERS (SPELLDAMAGEINFO)"] = "ZAUBERZAHLEN (SPELLDAMAGEINFO)",
+  ["DOTS (DOTINFO)"] = "DOTS (DOTINFO)",
+  ["CAST PREDICTION"] = "ZAUBERPROGNOSE",
+  ["HEAL PREDICTION"] = "HEILUNGSPROGNOSE",
+  ["STATS AND BAG ARROWS (STATSINFO)"] = "WERTE UND TASCHENPFEILE (STATSINFO)",
+  ["POINTS AND SOUNDS (RESOURCEDING)"] = "PUNKTE UND TÖNE (RESOURCEDING)",
+  ["RANGE"] = "REICHWEITE",
+  ["PERFORMANCE"] = "LEISTUNG",
+  ["FRAMES AND API"] = "FENSTER UND API",
+
+  -- unified ALL-CAPS section headers across module tabs
+  ["FILL"] = "FÜLLUNG",
+  ["OUTLINE"] = "UMRISS",
+  ["KILL ICON"] = "KILL-SYMBOL",
+  ["ABSORB NUMBER"] = "ABSORPTIONSZAHL",
+  ["POSITION"] = "POSITION",
+  ["INDICATORS"] = "ANZEIGEN",
+  ["FEATURES"] = "FUNKTIONEN",
+  ["EXPERIMENTS (ON BY DEFAULT IN THIS BETA)"] = "EXPERIMENTE (IN DIESER BETA STANDARDMÄSSIG AN)",
+
+  -- art style switcher and grouped kill icon labels
+  ["Art style"] = "Symbolstil",
+  ["Style: %s"] = "Stil: %s",
+  ["Art style: %s."] = "Symbolstil: %s.",
+  ["Art style: %s. /upt art 2d | pixel | classic"] = "Symbolstil: %s. /upt art 2d | pixel | classic",
+  ["Stylized 2D"] = "Stilisiertes 2D",
+  ["Pixel Art"] = "Pixel-Art",
+  ["Switches Soul Shards, combo orbs, range marks, upgrade arrows and markers between Stylized 2D, Pixel Art and Classic. Takes effect at once."] =
+    "Wechselt Seelensplitter, Combokugeln, Reichweitenmarken, Aufwertungspfeile und Markierungen zwischen Stilisiertem 2D, Pixel-Art und Klassisch. Wirkt sofort.",
+  ["Faceted skull"] = "Facettierter Schädel",
+  ["Lethal crosshair"] = "Tödliches Fadenkreuz",
+  ["Execution blades"] = "Hinrichtungsklingen",
+  ["Crystal checkmark"] = "Kristall-Häkchen",
+  ["Crystal cross"] = "Kristall-Kreuz",
+  ["Pixel skull"] = "Pixel-Schädel",
+  ["Pixel crosshair"] = "Pixel-Fadenkreuz",
+  ["Pixel blades"] = "Pixel-Klingen",
+  ["Pixel checkmark"] = "Pixel-Häkchen",
+  ["Pixel cross"] = "Pixel-Kreuz",
+  ["Show what execute/finisher is watched and test its icon for 5 seconds."] =
+    "Zeigt den überwachten Hinrichten-/Abschlusszauber und testet sein Symbol 5 Sekunden lang.",
+  ["Manage profiles..."] = "Profile verwalten...",
+  ["Click to switch profile or manage character profiles."] =
+    "Klicken, um das Profil zu wechseln oder Charakterprofile zu verwalten.",
+  ["Changes saved. Type /reload to apply."] = "Änderungen gespeichert. Tippe /reload zum Anwenden.",
+  ["Profile \"%s\" reset to defaults. Type /reload to apply."] =
+    "Profil \"%s\" auf Standard zurückgesetzt. Tippe /reload zum Anwenden.",
+  ["%s settings reset to defaults. Type /reload to apply."] =
+    "Einstellungen von %s auf Standard zurückgesetzt. Tippe /reload zum Anwenden.",
 })

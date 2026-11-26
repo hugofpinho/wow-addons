@@ -30,7 +30,7 @@ local DEFAULTS = {
     -- values still map onto the shared style (the legacy fallback below).
     chevronHeight = 1, chevronWidth = 1,
     locked = true,
-    attachToPlate = true, plateOffset = -60,
+    attachToPlate = true, plateOffset = -52,
     longRange = false,
     -- Retired display flags, kept so saved values survive: they never restore
     -- the old artwork. A stored animation flag maps onto reducedMotion = false.
@@ -46,8 +46,20 @@ local DEFAULTS = {
 --     ChatFrameConstants.lua ICON_LIST[8]/ICON_TAG_LIST skull, Gethe 8165d4).
 --   Melee mark: Interface\Icons\INV_Sword_04 (public Blizzard bag/inventory
 --     sword icon, used as a static melee glyph; never a RaidTarget assignment).
-local DEAD_ZONE_SKULL = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8"
-local MELEE_ICON = "Interface\\Icons\\INV_Sword_04"
+local DEAD_ZONE_SKULL = "Interface\\AddOns\\UsefulPlatesAndTooltips\\Modules\\DoTInfo\\Textures\\KillSkull2D"
+local MELEE_ICON = "Interface\\AddOns\\UsefulPlatesAndTooltips\\Modules\\HunterRangeFinder\\Textures\\MeleeSword"
+local function deadZoneTexture()
+    if BIT and BIT.Art and type(BIT.Art.Texture) == "function" then
+        return BIT.Art.Texture("deadZoneSkull") or DEAD_ZONE_SKULL
+    end
+    return DEAD_ZONE_SKULL
+end
+local function meleeTexture()
+    if BIT and BIT.Art and type(BIT.Art.Texture) == "function" then
+        return BIT.Art.Texture("meleeSword") or MELEE_ICON
+    end
+    return MELEE_ICON
+end
 -- One-time narrow shape migration version (own module key only).
 local R1_SHAPE_MIGRATION_VERSION = 1
 
@@ -366,7 +378,7 @@ local function hunterHealthBarOf(plate)
 end
 
 -- Last anchor seat: SetParent/SetPoint only move on change, never every poll.
-local reanchorKey, reanchorOffset = nil, nil
+local reanchorKey, reanchorOffset, reanchorExtra = nil, nil, nil
 
 local function reanchorHunterHud()
     if not hud or not settings then return end
@@ -375,7 +387,7 @@ local function reanchorHunterHud()
             if hud:GetParent() ~= UIParent then hud:SetParent(UIParent) end
             hud:ClearAllPoints()
             hud:SetPoint("CENTER", UIParent, "CENTER", finiteNum(settings.x, DEFAULTS.x), finiteNum(settings.y, DEFAULTS.y))
-            reanchorKey = "screen"
+            reanchorKey, reanchorOffset, reanchorExtra = "screen", nil, nil
         end
         return true
     end
@@ -383,7 +395,7 @@ local function reanchorHunterHud()
         if reanchorKey ~= "unseated" then
             if hud:GetParent() ~= UIParent then hud:SetParent(UIParent) end
             hud:ClearAllPoints()
-            reanchorKey, reanchorOffset = "unseated", nil
+            reanchorKey, reanchorOffset, reanchorExtra = "unseated", nil, nil
         end
         return false
     end
@@ -393,14 +405,15 @@ local function reanchorHunterHud()
     local plate = hunterTargetPlate()
     if not plate then return noPlate() end
     local offset = finiteNum(tonumber(settings.plateOffset), DEFAULTS.plateOffset)
-    if offset < -80 then offset = -80 elseif offset > 30 then offset = 30 end
+    if offset < -140 then offset = -140 elseif offset > 80 then offset = 80 end
     local bar = hunterHealthBarOf(plate)
     if not bar then return noPlate() end
-    if reanchorKey ~= bar or reanchorOffset ~= offset then
+    local extraTop = hud.labelAboveHeight or 0
+    if reanchorKey ~= bar or reanchorOffset ~= offset or reanchorExtra ~= extraTop then
         if hud:GetParent() ~= plate then hud:SetParent(plate) end
         hud:ClearAllPoints()
-        hud:SetPoint("TOP", bar, "BOTTOM", 0, -offset)
-        reanchorKey, reanchorOffset = bar, offset
+        hud:SetPoint("TOP", bar, "BOTTOM", 0, -offset + extraTop)
+        reanchorKey, reanchorOffset, reanchorExtra = bar, offset, extraTop
     end
     return true
 end
@@ -427,16 +440,16 @@ local function buildScene(parent)
     zone:SetPoint("TOP", rail, "BOTTOM", 0, -4)
     zone:SetJustifyH("CENTER")
     frame.zone = zone
-    -- Native status icons: static textures, no unit/spell/game probes.
+    -- Status icons: style-aware textures (2D / Pixel Art / Classic), no unit/spell/game probes.
     local deadIcon = frame:CreateTexture(nil, "OVERLAY")
-    deadIcon:SetTexture(DEAD_ZONE_SKULL)
+    deadIcon:SetTexture(deadZoneTexture())
     deadIcon:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     deadIcon:SetSize(24, 24)
     if deadIcon.SetVertexColor then deadIcon:SetVertexColor(1, 1, 1, 1) end
     deadIcon:Hide()
     frame.deadIcon = deadIcon
     local meleeIcon = frame:CreateTexture(nil, "OVERLAY")
-    meleeIcon:SetTexture(MELEE_ICON)
+    meleeIcon:SetTexture(meleeTexture())
     meleeIcon:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     meleeIcon:SetSize(24, 24)
     if meleeIcon.SetVertexColor then meleeIcon:SetVertexColor(1, 1, 1, 1) end
@@ -496,6 +509,7 @@ local function renderScene(frame, style, bandName, scatter)
     local iconSize = math.max(16, 24 * (style.scale or 1))
     if frame.deadIcon then
         if showDead then
+            frame.deadIcon:SetTexture(deadZoneTexture())
             frame.deadIcon:Show()
             frame.deadIcon:SetSize(iconSize, iconSize)
             frame.deadIcon:ClearAllPoints()
@@ -507,6 +521,7 @@ local function renderScene(frame, style, bandName, scatter)
     end
     if frame.meleeIcon then
         if showMelee then
+            frame.meleeIcon:SetTexture(meleeTexture())
             frame.meleeIcon:Show()
             frame.meleeIcon:SetSize(iconSize, iconSize)
             frame.meleeIcon:ClearAllPoints()
@@ -592,6 +607,7 @@ local function renderScene(frame, style, bandName, scatter)
     if showText then labelW, labelH = frame.zone:GetStringWidth(), frame.zone:GetStringHeight() end
     frame.zone:ClearAllPoints()
     if close then
+        frame.labelAboveHeight = 0
         if showDead or showMelee then
             frame.zone:SetPoint("LEFT", (showDead and frame.deadIcon or frame.meleeIcon), "RIGHT", 6, 0)
             if showText then
@@ -605,8 +621,19 @@ local function renderScene(frame, style, bandName, scatter)
         end
     else
         local markers = style.shape == "bar" and frame.bar or frame.rail
-        frame.zone:SetPoint("TOP", markers, "BOTTOM", 0, -4)
-        frame:SetSize(math.max(markers:GetWidth(), labelW), markers:GetHeight() + (showText and (4 + labelH) or 0))
+        local markersW, markersH = markers:GetWidth(), markers:GetHeight()
+        markers:ClearAllPoints()
+        markers:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
+        if showText then
+            local gapY = 3
+            frame.labelAboveHeight = labelH + gapY
+            frame.zone:SetPoint("BOTTOM", markers, "TOP", 0, gapY)
+            frame:SetSize(math.max(markersW, labelW), markersH + gapY + labelH)
+        else
+            frame.labelAboveHeight = 0
+            frame.zone:SetPoint("BOTTOM", markers, "TOP", 0, 0)
+            frame:SetSize(markersW, markersH)
+        end
     end
 end
 
@@ -620,7 +647,7 @@ local CAPABILITIES = {
     roles = { "distanceNear", "distanceMid", "distanceFar", "good", "bad", "unknown", "muted", "text" },
     shapes = { "segments", "bar", "dots" },
     font = true, geometry = true, border = true, scale = true, opacity = true,
-    width = 500, -- the editor lives in the settings tab's right column (see the tab below)
+    width = 470, -- fits inside the right ScrollColumn without clipping under the scrollbar
 }
 
 -- Old visual values that still mean something, mapped onto the shared style and
@@ -762,7 +789,9 @@ local function updateDisplay(_, dt)
     if band == lastRenderedBand and scatter == lastRenderedScatter
         and scatterRange == lastRenderedScatterRange then return end
     lastRenderedBand, lastRenderedScatter, lastRenderedScatterRange = band, scatter, scatterRange
+    local prevExtra = hud.labelAboveHeight or 0
     renderScene(hud, BIT.Style.Resolve(M.moduleName, hunterLegacy), band, scatter)
+    if (hud.labelAboveHeight or 0) ~= prevExtra then reanchorHunterHud() end
 end
 
 -- The anchor: the ordinary saved offset from the screen centre. Frame scale and
@@ -782,7 +811,7 @@ local function resetPosition()
     if not settings then return end
     settings.x, settings.y = DEFAULTS.x, DEFAULTS.y
     -- Forget the current anchor so an attached rail is re-seated by the attach setting, not left on the screen spot.
-    reanchorKey, reanchorOffset = nil, nil
+    reanchorKey, reanchorOffset, reanchorExtra = nil, nil, nil
     if hud then
         position()
         if not reanchorHunterHud() then hideUnseatedHud() end
@@ -883,12 +912,24 @@ local function start()
     if BIT.Style and BIT.Style.Subscribe then
         pcall(BIT.Style.Subscribe, M.moduleName, function()
             if hud and band and band ~= "OOR" and reanchorHunterHud() then
+                local prevExtra = hud.labelAboveHeight or 0
                 local ok = pcall(renderScene, hud,
                     BIT.Style.Resolve(M.moduleName, hunterLegacy), band, scatterRed)
-                if not ok then end
+                if ok and (hud.labelAboveHeight or 0) ~= prevExtra then reanchorHunterHud() end
             elseif hud and preview then
                 pcall(renderScene, hud,
                     BIT.Style.Resolve(M.moduleName, hunterLegacy), "PREVIEW", false)
+            end
+        end)
+    end
+    if BIT.Art and type(BIT.Art.Subscribe) == "function" then
+        BIT.Art.Subscribe(function()
+            if hud and band and band ~= "OOR" and reanchorHunterHud() then
+                local prevExtra = hud.labelAboveHeight or 0
+                local ok = pcall(renderScene, hud, BIT.Style.Resolve(M.moduleName, hunterLegacy), band, scatterRed)
+                if ok and (hud.labelAboveHeight or 0) ~= prevExtra then reanchorHunterHud() end
+            elseif hud and preview then
+                pcall(renderScene, hud, BIT.Style.Resolve(M.moduleName, hunterLegacy), "PREVIEW", false)
             end
         end)
     end
@@ -920,8 +961,8 @@ local function prepareHunterSettings()
   if hadOldOffset then settings.plateOffset = -(tonumber(settings.plateOffset) or 0) end
   settings.plateScheme = 2
   settings.plateOffset = finiteNum(tonumber(settings.plateOffset), DEFAULTS.plateOffset)
-  if settings.plateOffset < -80 then settings.plateOffset = -80
-  elseif settings.plateOffset > 30 then settings.plateOffset = 30 end
+  if settings.plateOffset < -140 then settings.plateOffset = -140
+  elseif settings.plateOffset > 80 then settings.plateOffset = 80 end
   settings.scale = clamp(settings.scale, DEFAULTS.scale, 0.5, 3)
   settings.opacity = clamp(settings.opacity, DEFAULTS.opacity, 0.1, 1)
   settings.chevronHeight = clamp(settings.chevronHeight, DEFAULTS.chevronHeight, 0.5, 1.5)
@@ -972,9 +1013,8 @@ end)
 -- data preservation; only the two native icon flags have controls of their own.
 ----------------------------------------------------------------------------------------------
 
-local WINDOW_WIDTH, WINDOW_HEIGHT = 840, 500
+local WINDOW_WIDTH, WINDOW_HEIGHT = 840, 560
 local PREVIEW_WIDTH = 290
-local COL_HEIGHT = 440 -- both columns fit the window's viewport; only the Appearance tab scrolls
 local ROW_HEIGHT = 26
 local SETTINGS_LAYOUT = BIT.Looks.LAYOUT -- one geometry for every module's rows (Core/LookRows.lua)
 local PREVIEW_LAYOUT = { label = 86, control = 146 }
@@ -983,9 +1023,9 @@ local DISABLED_ALPHA = 0.35
 -- The TRY IT switch: every band the rail can show, nearest first (the order the dots light).
 local BAND_ORDER = { "Y10", "Y15", "Y20", "Y25", "Y30", "Y35", "MAX", "MELEE", "DEAD" }
 local BAND_SWITCH_TEXT = {
-    Y10 = "Y10  8-10 yd", Y15 = "Y15  10-15 yd", Y20 = "Y20  15-20 yd",
-    Y25 = "Y25  20-25 yd", Y30 = "Y30  25-30 yd", Y35 = "Y35  30-35 yd",
-    MAX = "MAX  35+ yd (seventh dot)", MELEE = "MELEE  Wing Clip's reach", DEAD = "DEAD  5-8 yd dead zone",
+    Y10 = "8-10 yd", Y15 = "10-15 yd", Y20 = "15-20 yd",
+    Y25 = "20-25 yd", Y30 = "25-30 yd", Y35 = "30-35 yd",
+    MAX = "35+ yd", MELEE = "MELEE", DEAD = "DEAD",
 }
 local previewBand = SAMPLE_BAND
 local previewBar -- the mock health bar the preview rail is seated on
@@ -1018,9 +1058,10 @@ end
 local function seatPreviewRail()
     if not sample or not previewBar then return end
     local offset = finiteNum(tonumber(settings and settings.plateOffset), DEFAULTS.plateOffset)
-    if offset < -80 then offset = -80 elseif offset > 30 then offset = 30 end
+    if offset < -140 then offset = -140 elseif offset > 80 then offset = 80 end
+    local extraTop = sample.labelAboveHeight or 0
     sample:ClearAllPoints()
-    sample:SetPoint("TOP", previewBar, "BOTTOM", 0, -offset)
+    sample:SetPoint("TOP", previewBar, "BOTTOM", 0, -offset + extraTop)
     -- Center the ensemble (the plate with the rail seated off its bar) in the scene: the paint
     -- starts at the sample's top (30 below the plate top, the bar bottom) plus the offset;
     -- 36 is the plate's height. Heights come from the render just done, never a previous.
@@ -1030,8 +1071,8 @@ local function seatPreviewRail()
         local contentH = sample:GetHeight()
         local sceneH = select(2, pcall(scene.GetHeight, scene))
         sceneH = type(sceneH) == "number" and sceneH or 228
-        local above = math.max(0, -(30 + offset))
-        local below = math.max(0, 30 + offset + contentH - 36)
+        local above = math.max(0, -(30 + offset - extraTop))
+        local below = math.max(0, 30 + offset - extraTop + contentH - 36)
         plate.frame:ClearAllPoints()
         plate.frame:SetPoint("TOP", scene, "TOP", 0, -(sceneH / 2 - 18 + (above - below) / 2))
     end
@@ -1054,7 +1095,9 @@ local function refreshAll()
         local b = preview and "PREVIEW" or band
         if b and b ~= "OOR" then
             if reanchorHunterHud() then
+                local prevExtra = hud.labelAboveHeight or 0
                 renderScene(hud, style, b, scatterRed)
+                if (hud.labelAboveHeight or 0) ~= prevExtra then reanchorHunterHud() end
             else
                 hideUnseatedHud()
             end
@@ -1102,11 +1145,7 @@ local function setBackdrop(frame, shade, alpha)
 end
 
 local function pushButton(parent, text, width, onClick)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetSize(width, 22)
-    button:SetText(text)
-    button:SetScript("OnClick", onClick)
-    return BIT.UI.SkinButton(button)
+    return BIT.UI.Button(parent, text, width, onClick)
 end
 
 local function rowOpts(opts)
@@ -1159,7 +1198,7 @@ end
 local function actionRow(parent, labelText, buttonText, onClick, opts)
     opts = opts or {}
     local row = makeRow(parent, labelText, opts)
-    local button = pushButton(row, type(buttonText) == "function" and buttonText() or buttonText, 110, onClick)
+    local button = pushButton(row, type(buttonText) == "function" and buttonText() or buttonText, row.layout.control, onClick)
     button:SetPoint("LEFT", row, "LEFT", row.layout.label, 0)
     function row:Refresh()
         if type(buttonText) == "function" then button:SetText(buttonText()) end
@@ -1190,31 +1229,25 @@ end
 -- is taller than the area, and a scroll each keeps the left preview still.
 ----------------------------------------------------------------------------------------------
 
+local resetButton
 local function selectTab(tab)
     activeTab = tab
     for _, other in ipairs(tabs) do
         local selected = other == tab
-        other.content:SetShown(selected)
+        other.column:SetShown(selected)
         BIT.UI.TabSelected(other.button, selected)
     end
+    if resetButton then resetButton:SetShown(not (tab and tab.hasOwnReset)) end
 end
 
 local function addTab(name)
     local tab = { name = name, keys = {}, y = 0 }
-    local content = CreateFrame("ScrollFrame", nil, area)
-    content:SetPoint("TOPLEFT", area, "TOPLEFT", 8, -40)
-    content:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -8, 40)
-    content:EnableMouseWheel(true)
-    local inner = CreateFrame("Frame", nil, content)
-    inner:SetWidth((area:GetWidth() or 500) - 16)
-    content:SetScrollChild(inner)
-    content:SetScript("OnMouseWheel", function(_, delta)
-        local maxScroll = math.max(0, (inner:GetHeight() or 0) - (content:GetHeight() or 0))
-        local at = (content:GetVerticalScroll() or 0) - delta * 24
-        content:SetVerticalScroll(math.min(math.max(at, 0), maxScroll))
-    end)
-    tab.content, tab.inner = content, inner
-    content:Hide()
+    local column = BIT.UI.ScrollColumn(area)
+    column:SetPoint("TOPLEFT", area, "TOPLEFT", 6, -40)
+    column:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -6, 40)
+    column:Hide()
+    local inner = column.content
+    tab.column, tab.content, tab.inner = column, column.scroll, inner
 
     local button = CreateFrame("Button", nil, area, "PanelTopTabButtonTemplate")
     button:SetText(name)
@@ -1242,6 +1275,14 @@ local function addTab(name)
     function tab:action(...) return place(actionRow(self.inner, ...)) end
     function tab:info(...) return place(infoRow(self.inner, ...)) end
     function tab:custom(row, key, height) return place(row, key, height) end
+    function tab:header(text)
+        if self.y > 0 then self.y = self.y + 8 end
+        local row = BIT.UI.Header(self.inner, text)
+        row:SetPoint("TOPLEFT", self.inner, "TOPLEFT", 6, -self.y)
+        row:SetPoint("RIGHT", self.inner, "RIGHT", -6, 0)
+        self.y = self.y + 24
+        return row
+    end
     function tab:note(text)
         local line = self.inner:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         line:SetPoint("TOPLEFT", self.inner, "TOPLEFT", 0, -self.y)
@@ -1252,7 +1293,7 @@ local function addTab(name)
         return line
     end
     function tab:gap(height) self.y = self.y + (height or 8) end
-    function tab:finish() self.inner:SetHeight(math.max(self.y + 12, 1)) end
+    function tab:finish() self.column:Fit(math.max(self.y + 12, 1)) end
 
     tabs[#tabs + 1] = tab
     return tab
@@ -1281,6 +1322,7 @@ local function buildTabs(parent, isHunter)
     local hunterOnly = function() return isHunter end
 
     local display = addTab(BIT.L("Display"))
+    display:header("POSITION")
     parent.lockButton = display:action("Position",
         function() return settings.locked and BIT.L("Unlock and move") or BIT.L("Lock position") end,
         function() setLocked(not settings.locked) end,
@@ -1294,20 +1336,20 @@ local function buildTabs(parent, isHunter)
         { enabledIf = hunterOnly,
             tooltip = "The rail rides above the target's nameplate, like the ResourceDing dots. "
                 .. "It is hidden when that plate is not visible. Unchecked keeps the draggable screen position." })
-    parent.plateOffset = display:slider("plateOffset", "Height above the bar", -80, 30, 1,
+    parent.plateOffset = display:slider("plateOffset", "Height above the bar", -140, 80, 1,
         { up = true, enabledIf = function(s) return isHunter and s.attachToPlate ~= false end,
             tooltip = "How high the rail sits above the plate's health bar. Positive is up, negative is under the bar. The same seat as the combo dots." })
     plateClashLine = display:note(BIT.L("Nameplate lanes"))
     refreshPlateClash()
-    display:gap()
+    display:header("INDICATORS")
     parent.rangeText = display:checkbox("showRangeText", "Show range text",
-        { tooltip = "The label under the rail (25-30 yd, MELEE, DEAD ZONE). Unchecked keeps only the coloured "
+        { tooltip = "The label above the rail (25-30 yd, MELEE, DEAD ZONE). Unchecked keeps only the coloured "
             .. "rail and the MELEE / Dead Zone icons." })
     parent.deadIcon = display:checkbox("showDeadzoneIcon", "Show Dead Zone skull (native)",
         { tooltip = "Native Blizzard raid skull for the 5-8 yd dead zone. Unchecked hides it." })
     parent.meleeIcon = display:checkbox("showMeleeIcon", "Show Melee mark (native sword)",
         { tooltip = "Native Blizzard sword glyph for melee reach. Unchecked hides it." })
-    display:gap()
+    display:header("RANGE")
     parent.longRange = display:checkbox("longRange", "Extended range past 35 yd (Hawk Eye)",
         -- Once the spellbook has answered, the box shows that answer and a click could not change it.
         { enabledIf = function() return isHunter and detectedAutoMax == nil end,
@@ -1329,7 +1371,10 @@ local function buildTabs(parent, isHunter)
     end
 
     local appearance = addTab(BIT.L("Appearance"))
-    local editor = BIT.UI.Appearance(appearance.inner, M.moduleName, CAPABILITIES, refreshAll, hunterLegacy)
+    appearance.hasOwnReset = true -- BIT.UI.Appearance owns its own scope-aware reset button
+    local tabCaps = { hideSample = true }
+    for k, v in pairs(CAPABILITIES) do tabCaps[k] = v end
+    local editor = BIT.UI.Appearance(appearance.inner, M.moduleName, tabCaps, refreshAll, hunterLegacy)
     editor:SetPoint("TOPLEFT", appearance.inner, "TOPLEFT", 0, 0)
     editor.onLayout = function()
         appearance.y = (editor:GetHeight() or 0) + 8
@@ -1353,14 +1398,7 @@ local function buildLivePreview(pane)
     local SIDE = 12
     local CARD_WIDTH = PREVIEW_WIDTH - 2 * SIDE
 
-    local title = pane:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOPLEFT", SIDE, -12)
-    title:SetText(BIT.L("Live preview"))
-    local titleRule = pane:CreateTexture(nil, "ARTWORK")
-    titleRule:SetColorTexture(unpack(BIT.UI.COLOR.divider))
-    titleRule:SetHeight(1)
-    titleRule:SetPoint("TOPLEFT", 8, -34)
-    titleRule:SetPoint("TOPRIGHT", -8, -34)
+    BIT.UI.PreviewHeader(pane, "Live preview", SIDE)
 
     -- The scene: a patch of dusky world behind the mock plate, so the rail reads in place.
     local scene = BIT.UI.Preview.Scene(pane, CARD_WIDTH, 228)
@@ -1379,22 +1417,8 @@ local function buildLivePreview(pane)
     renderPreview()
     pane.hunterRail = sample
 
-    -- Section header: small gold caps and a hairline to the right margin.
-    local function header(text, anchor, gap)
-        local label = pane:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        label:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -gap)
-        label:SetText(text)
-        label:SetTextColor(0.85, 0.7, 0.3)
-        local rule = pane:CreateTexture(nil, "ARTWORK")
-        rule:SetColorTexture(unpack(BIT.UI.COLOR.divider))
-        rule:SetHeight(1)
-        rule:SetPoint("LEFT", label, "RIGHT", 8, 0)
-        rule:SetPoint("RIGHT", pane, "RIGHT", -SIDE, 0)
-        return label
-    end
-
     -- TRY IT: the mock target's own band, never a saved setting.
-    local tryIt = header(BIT.L("TRY IT"), scene, 14)
+    local tryIt = BIT.Looks.TryItHeader(pane, scene, 0, -14)
     local bandRow = sliderRow(pane, "Target band", 1, #BAND_ORDER, 1,
         function() return bandIndex(previewBand) or 1 end,
         function(value) setPreviewBand(BAND_ORDER[value]) end,
@@ -1421,12 +1445,8 @@ local function buildLivePreview(pane)
     })
     pane.hunterSimulate = simulate
 
-    local hint = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    hint:SetPoint("TOPLEFT", simulate, "BOTTOMLEFT", 0, -10)
-    hint:SetPoint("RIGHT", pane, "RIGHT", -SIDE, 0)
-    hint:SetJustifyH("LEFT")
-    hint:SetText(BIT.L("Drawn by the same code as the live HUD, on a mock enemy nameplate. Six dots by "
-        .. "default; a seventh past 35 yd only with Hawk Eye."))
+    BIT.UI.PreviewHint(pane, "Drawn by the same code as the live HUD, on a mock enemy nameplate. Six dots by "
+        .. "default; a seventh past 35 yd only with Hawk Eye.", SIDE)
 end
 
 local function build(parent)
@@ -1449,26 +1469,23 @@ local function build(parent)
     presetLabel:SetPoint("RIGHT", presetButton, "LEFT", -8, 0)
     presetLabel:SetText(BIT.L("Rail"))
 
-    local note = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", 12, -6)
-    note:SetPoint("RIGHT", presetLabel, "LEFT", -12, 0)
-    note:SetJustifyH("LEFT")
-    note:SetText(isHunter
+    local note = BIT.UI.TabSummary(parent, isHunter
         and BIT.L("The rail rides above the target's nameplate while a living hostile target is selected; "
             .. "unlock to drag it to a screen spot of your own.")
         or BIT.L("The native range rail appears only on a Hunter. On another class these settings wait for the "
-            .. "hunter alt; the preview and the appearance editor need no hunter and no target."))
+            .. "hunter alt; the preview and the appearance editor need no hunter and no target."), presetLabel)
     parent.hunterNote = note
 
     local pane = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    pane:SetPoint("TOPLEFT", 10, -46)
-    pane:SetSize(PREVIEW_WIDTH, COL_HEIGHT)
+    pane:SetPoint("TOPLEFT", 10, -(BIT.UI.TAB_TOP or 44))
+    pane:SetPoint("BOTTOMLEFT", 10, 10)
+    pane:SetWidth(PREVIEW_WIDTH)
     setBackdrop(pane, 0.09)
     parent.hunterPane = pane
 
     area = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     area:SetPoint("TOPLEFT", pane, "TOPRIGHT", 10, 0)
-    area:SetSize(WINDOW_WIDTH - PREVIEW_WIDTH - 30, COL_HEIGHT)
+    area:SetPoint("BOTTOMRIGHT", -10, 10)
     setBackdrop(area, 0.09)
     parent.hunterArea = area
 
@@ -1482,11 +1499,9 @@ local function build(parent)
     parent.hunterSample = sample
     buildTabs(parent, isHunter)
 
-    local reset = pushButton(area, BIT.L("Reset this tab"), 120, function() resetTab(activeTab) end)
-    local resetFont = reset:GetFontString()
-    reset:SetWidth(math.max(120, math.ceil(resetFont and resetFont:GetStringWidth() or 0) + 18))
-    reset:SetPoint("BOTTOMRIGHT", -10, 10)
-    parent.hunterResetTab = reset
+    resetButton = BIT.Looks.ResetButton(area, function() resetTab(activeTab) end)
+    resetButton:SetPoint("BOTTOMRIGHT", -10, 10)
+    parent.hunterResetTab = resetButton
     parent.hunterTabs = tabs
 
     tabRefresh = function()
@@ -1494,6 +1509,10 @@ local function build(parent)
     end
     selectTab(tabs[1])
     refreshAll()
+    parent:HookScript("OnShow", refreshAll)
+    if BIT.Art and type(BIT.Art.Subscribe) == "function" then
+        BIT.Art.Subscribe(refreshAll)
+    end
 end
 
 ----------------------------------------------------------------------------------------------
@@ -1517,6 +1536,7 @@ BIT.RegisterTab("HunterRangeFinder", {
     title = "Hunter range",
     summary = "Six native dots tell a hunter the approximate range, 8-10 yd to 30-35 yd; a seventh past 35 yd with Hawk Eye.",
     width = WINDOW_WIDTH, height = WINDOW_HEIGHT,
+    usesStyle = true,
     capabilities = CAPABILITIES,
     legacy = hunterLegacy,
     buildPreview = buildPreview,

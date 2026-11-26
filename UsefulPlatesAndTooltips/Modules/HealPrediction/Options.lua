@@ -5,9 +5,8 @@ local _, BIT = ...
 
 local ns = BIT.Module("HealPrediction")
 
-local WINDOW_WIDTH, WINDOW_HEIGHT = 840, 500
+local WINDOW_WIDTH, WINDOW_HEIGHT = 840, 560
 local PREVIEW_WIDTH = 290
-local COL_HEIGHT = 440
 local ROW_HEIGHT = 26
 local SIDE = 12
 
@@ -194,17 +193,9 @@ end
 ---------------------------------------------------------------------------------------------
 
 local function buildPreview(pane)
-    pane:SetSize(PREVIEW_WIDTH, COL_HEIGHT)
     BIT.UI.Backdrop(pane, 0.09)
 
-    local title = pane:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOPLEFT", SIDE, -12)
-    title:SetText(BIT.L("Live preview"))
-    local rule = pane:CreateTexture(nil, "ARTWORK")
-    rule:SetColorTexture(unpack(BIT.UI.COLOR.divider))
-    rule:SetHeight(1)
-    rule:SetPoint("TOPLEFT", 8, -34)
-    rule:SetPoint("TOPRIGHT", -8, -34)
+    local title = BIT.UI.PreviewHeader(pane, "Live preview", SIDE)
 
     -- The same Murloc target frame the other tabs preview on, with the module's own segment
     -- drawn from the health edge exactly as it is on the real frame.
@@ -213,9 +204,9 @@ local function buildPreview(pane)
 
     -- The frame the sample sits on: target, player or party, each with its own "Show on" switch.
     local kits = {
-        target = BIT.UI.Preview.TargetFrame(scene, { name = "Murloc Raider", level = "12", health = 60 }),
-        player = BIT.UI.Preview.PlayerFrame(scene, { name = "You", health = 60 }),
-        party = BIT.UI.Preview.PartyBar(scene, { name = "Kaya", width = 190, health = 60 }),
+        target = BIT.UI.Preview.TargetFrame(scene, { name = "Murloc Raider", level = "12", health = 45 }),
+        player = BIT.UI.Preview.PlayerFrame(scene, { name = "You", health = 45 }),
+        party = BIT.UI.Preview.PartyBar(scene, { name = "Kaya", width = 190, health = 45 }),
     }
     local FRAMES = { { id = "target", label = "Target" }, { id = "player", label = "Player" }, { id = "party", label = "Party" } }
     local which = "target"
@@ -223,30 +214,106 @@ local function buildPreview(pane)
     for id, kit in pairs(kits) do
         kit.frame:SetPoint("CENTER", scene, "CENTER", 0, 0)
         kit.bar:SetMinMaxValues(0, 100)
-        kit.bar:SetValue(60)
+        kit.bar:SetValue(45)
         kit.frame:SetShown(id == which)
     end
 
-    local state = { health = 60, heal = 25, others = 12 }
+    local TARGET_MAX_HEALTH, PLAYER_MAX_HEALTH = 142, 100
+    local FRAME_HINT = {
+        target = "Show on target frame",
+        player = "Show on player frame",
+        party = "Show on party frames",
+    }
+    local state = { health = 45, heal = 20, others = 10 }
     local sampleHotTotal, sampleHotDuration = 30, 12
+
+    local statusBar = CreateFrame("Frame", nil, pane, "BackdropTemplate")
+    statusBar:SetPoint("TOPLEFT", scene, "BOTTOMLEFT", 0, -8)
+    statusBar:SetPoint("TOPRIGHT", scene, "BOTTOMRIGHT", 0, -8)
+    statusBar:SetHeight(22)
+    BIT.UI.Backdrop(statusBar, 0.06)
+    local statusText = statusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statusText:SetPoint("LEFT", statusBar, "LEFT", 8, 0)
+    statusText:SetPoint("RIGHT", statusBar, "RIGHT", -8, 0)
+    statusText:SetJustifyH("CENTER")
+    statusBar.text = statusText
+
+    local hint
+    local function hexOf(colorId)
+        local r, g, b = 0.4, 1, 0.4
+        if ns.ColorOf then r, g, b = ns.ColorOf(colorId, 100) end
+        return string.format("|cff%02x%02x%02x",
+            math.max(0, math.min(255, math.floor((r or 1) * 255 + 0.5))),
+            math.max(0, math.min(255, math.floor((g or 1) * 255 + 0.5))),
+            math.max(0, math.min(255, math.floor((b or 1) * 255 + 0.5))))
+    end
+
+    local function updateStatus(hot)
+        local s = db()
+        if s[which] == false then
+            statusText:SetText("|cff888888" .. string.format(BIT.L("Hidden (%s is off)"), BIT.L(FRAME_HINT[which] or FRAME_HINT.target)) .. "|r")
+            return
+        end
+        if state.simPhase then
+            statusText:SetText("|cffffd24d" .. state.simPhase .. "|r")
+            return
+        end
+        local parts = {}
+        if s.allHealers then
+            local all = (state.heal or 0) + (state.others or 0)
+            if all > 0 then
+                parts[#parts + 1] = hexOf(s.fillColor) .. BIT.L("All") .. " +" .. math.floor(all + 0.5) .. "%|r"
+            end
+        else
+            if (state.heal or 0) > 0 then
+                parts[#parts + 1] = hexOf(s.fillColor) .. BIT.L("Own") .. " +" .. math.floor(state.heal + 0.5) .. "%|r"
+            end
+            if s.showOthers ~= false and (state.others or 0) > 0 then
+                parts[#parts + 1] = hexOf(s.otherColor) .. BIT.L("Others") .. " +" .. math.floor(state.others + 0.5) .. "%|r"
+            end
+        end
+        if s.showHots ~= false and hot and hot > 0 then
+            parts[#parts + 1] = hexOf(s.hotColor) .. BIT.L("HoT") .. " +" .. math.floor(hot + 0.5) .. "%|r"
+        end
+        if #parts == 0 then
+            statusText:SetText("|cff888888" .. BIT.L("No incoming heal") .. "|r")
+        else
+            statusText:SetText(table.concat(parts, "  |cff666666/|r  "))
+        end
+    end
+
+    local function updateHint()
+        if not hint then return end
+        local opt = BIT.L(FRAME_HINT[which] or FRAME_HINT.target)
+        hint:SetText(string.format(BIT.L("The %s option controls this sample; the other Show on options control live frames. "
+            .. "The segment starts at the health edge (the green bar's end) and is cropped at the bar's right end when the heal would overheal."), opt))
+    end
+
     local function redraw()
         mock.bar:SetValue(state.health)
-        if mock.healthPercent then mock.healthPercent:SetText(string.format("%d%%", state.health)) end
+        if mock.healthPercent then mock.healthPercent:SetText(string.format("%d%%", math.floor(state.health + 0.5))) end
+        if mock.healthValue then
+            local maxHp = which == "player" and PLAYER_MAX_HEALTH or TARGET_MAX_HEALTH
+            mock.healthValue:SetText(tostring(math.floor(maxHp * state.health / 100 + 0.5)))
+        end
         local horizon = ns.HotHorizon and ns.HotHorizon() or tonumber(db().hotHorizon) or 4
         -- hotRemaining: seconds of the sample HoT left (the Simulate scene runs it down; otherwise it is fresh)
         local hot = sampleHotTotal * math.min(horizon, state.hotRemaining or sampleHotDuration) / sampleHotDuration
         ns.DrawSample(mock.bar, 100, state.heal, state.heal + state.others, hot, which)
+        updateStatus(hot)
+        updateHint()
     end
 
-    -- FRAME: which mock carries the sample (the same switch as ShieldsInfo's preview).
+    -- FRAME: which mock carries the sample (the same switch and header as ShieldsInfo's preview).
+    local whichFrame = BIT.Looks.TryItHeader(pane, statusBar, 0, -10, "FRAME")
     local switch = CreateFrame("Frame", nil, pane)
     switch:SetSize(PREVIEW_WIDTH - 2 * SIDE, 22)
-    switch:SetPoint("TOPLEFT", scene, "BOTTOMLEFT", 0, -8)
+    switch:SetPoint("TOPLEFT", whichFrame, "BOTTOMLEFT", 0, -4)
     local switchButtons = {}
     local left = 0
     for _, entry in ipairs(FRAMES) do
         local label = BIT.L(entry.label)
-        local button = BIT.UI.Button(switch, label, 70, function()
+        local button = BIT.UI.Button(switch, label, 66, function()
             if which == entry.id then return end
             if ns.HideSample then ns.HideSample(mock.bar) end
             kits[which].frame:Hide()
@@ -255,53 +322,84 @@ local function buildPreview(pane)
             for id, b in pairs(switchButtons) do b:SetAlpha(id == which and 1 or 0.55) end
             redraw()
         end)
-        button:SetHeight(20)
+        local fs = button.GetFontString and button:GetFontString()
+        local w = math.max(66, math.ceil(fs and fs.GetStringWidth and fs:GetStringWidth() or 0) + 18)
+        button:SetSize(w, 20)
         button:SetPoint("TOPLEFT", switch, "TOPLEFT", left, 0)
         button:SetAlpha(entry.id == which and 1 or 0.55)
         switchButtons[entry.id] = button
-        left = left + 74
+        left = left + w + 4
     end
 
     -- The two sliders are the sample's own numbers, never settings.
+    local saved, sim
     local tryIt = BIT.Looks.TryItHeader(pane, switch)
     local healthSlider = BIT.Looks.PreviewSlider(pane, "Health", 1, 100,
         function() return state.health end,
         function(value)
             state.health = math.max(1, math.min(100, math.floor(value + 0.5)))
+            if state.simulating and sim and sim.Stop then
+                if saved then state.heal, state.others = saved.heal, saved.others end
+                saved = nil
+                sim.Stop()
+                return
+            end
             redraw()
         end)
-    healthSlider:SetPoint("TOPLEFT", tryIt, "BOTTOMLEFT", -4, -4)
+    healthSlider:SetPoint("TOPLEFT", tryIt, "BOTTOMLEFT", -6, -4)
     local healSlider = BIT.Looks.PreviewSlider(pane, "Incoming heal", 0, 100,
         function() return state.heal end,
         function(value)
             state.heal = math.max(0, math.min(100, math.floor(value + 0.5)))
+            if state.simulating and sim and sim.Stop then
+                if saved then state.health, state.others = saved.health, saved.others end
+                saved = nil
+                sim.Stop()
+                return
+            end
             redraw()
         end)
     healSlider:SetPoint("TOPLEFT", healthSlider, "BOTTOMLEFT", 0, 0)
 
-    -- SIMULATE: a heal is cast (its segment grows, the other healers' band joins), lands, and its HoT runs down.
-    local saved
-    local sim = BIT.Looks.Simulate(pane, healSlider, {
-        x = 4, y = -10, length = 10,
-        text = "A heal is cast and lands, then its heal over time ticks down.",
-        start = function() saved = { health = state.health, heal = state.heal, others = state.others } end,
+    -- SIMULATE: wounded target -> direct heal cast -> another healer joins -> heals land -> HoT ticks to full.
+    sim = BIT.Looks.Simulate(pane, healSlider, {
+        x = 6, y = -10, length = 9.6,
+        text = "A direct heal is cast, another healer joins, both land, and a heal over time ticks the target to full.",
+        start = function()
+            saved = { health = state.health, heal = state.heal, others = state.others }
+            state.simulating = true
+        end,
         frame = function(t)
-            if t < 2.5 then
-                state.health, state.heal = 40, 25 * t / 2.5
-                state.others = t >= 1 and 12 or 0
-                state.hotRemaining = 0
+            if t < 0.4 then
+                state.health, state.heal, state.others, state.hotRemaining = 40, 0, 0, 0
+                state.simPhase = BIT.L("Wounded (40% HP)")
+            elseif t < 1.4 then
+                state.health, state.heal, state.others, state.hotRemaining = 40, 20, 0, 0
+                state.simPhase = BIT.L("Casting direct heal (+20%)")
+            elseif t < 2.8 then
+                state.health, state.heal, state.others, state.hotRemaining = 40, 20, 10, 0
+                state.simPhase = BIT.L("Other healer joins (+10%)")
             else
-                local since = t - 2.5
+                local since = t - 2.8
+                local ticks = math.min(4, math.floor(since / 1.5))
                 state.heal, state.others = 0, 0
-                state.health = math.min(100, 65 + math.floor(since) * 3)
-                state.hotRemaining = math.max(0, sampleHotDuration - since)
+                state.health = math.min(100, math.floor(70 + ticks * 7.5 + 0.5))
+                state.hotRemaining = math.max(0, sampleHotDuration - ticks * 3)
+                state.simPhase = ticks >= 4 and BIT.L("Full health")
+                    or string.format(BIT.L("Heal landed - HoT tick %d/4"), ticks)
             end
-            state.health = math.floor(state.health + 0.5)
             redraw()
+            if healthSlider.Refresh then healthSlider:Refresh() end
+            if healSlider.Refresh then healSlider:Refresh() end
         end,
         finish = function()
-            if saved then state.health, state.heal, state.others = saved.health, saved.heal, saved.others end
+            state.simulating = false
+            state.simPhase = nil
             state.hotRemaining = nil
+            if saved then
+                state.health, state.heal, state.others = saved.health, saved.heal, saved.others
+                saved = nil
+            end
             redraw()
             if healthSlider.Refresh then healthSlider:Refresh() end
             if healSlider.Refresh then healSlider:Refresh() end
@@ -309,16 +407,13 @@ local function buildPreview(pane)
     })
     pane.simulate = sim
 
-    local hint = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    hint:SetPoint("TOPLEFT", sim, "BOTTOMLEFT", 2, -8)
-    hint:SetWidth(PREVIEW_WIDTH - 2 * SIDE)
-    hint:SetJustifyH("LEFT")
-    hint:SetText(BIT.L("The Show on target frame option controls this sample; the other Show on options control live frames. "
+    hint = BIT.UI.PreviewHint(pane, "The Show on target frame option controls this sample; the other Show on options control live frames. "
         .. "The segment starts at the health edge (the green bar's "
-        .. "end) and is cropped at the bar's right end when the heal would overheal."))
+        .. "end) and is cropped at the bar's right end when the heal would overheal.", SIDE)
 
     pane.title = title
     pane.hint = hint
+    pane.statusBar = statusBar
     pane.healthSlider = healthSlider
     pane.healSlider = healSlider
     pane.Refresh = redraw
@@ -344,27 +439,21 @@ if BIT.RegisterTab then
             if window == parent then return end
             window = parent
             controls = {}
-            local note1 = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            note1:SetPoint("TOPLEFT", 12, -6)
-            note1:SetPoint("RIGHT", -12, 0)
-            note1:SetJustifyH("LEFT")
-            note1:SetText(BIT.L("The client already knows how much healing is coming (UnitGetIncomingHeals). "
+            BIT.UI.TabSummary(parent, BIT.L("The client already knows how much healing is coming (UnitGetIncomingHeals). "
                 .. "This module redraws direct heals and adds estimates for your own heals over time."))
             local pane = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-            pane:SetPoint("TOPLEFT", 10, -46)
+            pane:SetPoint("TOPLEFT", 10, -(BIT.UI.TAB_TOP or 44))
+            pane:SetPoint("BOTTOMLEFT", 10, 10)
+            pane:SetWidth(PREVIEW_WIDTH)
             buildPreview(pane)
             panel = pane
             local area = CreateFrame("Frame", nil, parent, "BackdropTemplate")
             area:SetPoint("TOPLEFT", pane, "TOPRIGHT", 10, 0)
-            area:SetSize(WINDOW_WIDTH - PREVIEW_WIDTH - 30, COL_HEIGHT)
+            area:SetPoint("BOTTOMRIGHT", -10, 10)
             BIT.UI.Backdrop(area, 0.09)
-            local divider = area:CreateTexture(nil, "ARTWORK")
-            divider:SetColorTexture(unpack(BIT.UI.COLOR.divider))
-            divider:SetHeight(1)
-            divider:SetPoint("TOPLEFT", 8, -34)
-            divider:SetPoint("TOPRIGHT", -8, -34)
+            BIT.UI.PreviewHeader(area, "Settings", 12)
             local column = BIT.UI.ScrollColumn(area)
-            column:SetPoint("TOPLEFT", area, "TOPLEFT", 6, -42)
+            column:SetPoint("TOPLEFT", area, "TOPLEFT", 6, -40)
             column:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -6, 40)
             tabKeys = {}
             column:Fit((buildSettings(column.content) or 0) + 12)

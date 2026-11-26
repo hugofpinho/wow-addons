@@ -492,6 +492,22 @@ function Style.Resolve(moduleName, legacy)
     return container
   end
 
+  local CORE_TEX_DIR = "Interface\\AddOns\\UsefulPlatesAndTooltips\\Core\\Textures\\"
+  local MARKER_DIAMOND = CORE_TEX_DIR .. "MarkerDiamond"
+  local MARKER_DIAMOND_BEZEL = CORE_TEX_DIR .. "MarkerDiamondBezel"
+  local MARKER_SEGMENT = CORE_TEX_DIR .. "MarkerSegment"
+
+  local function artStyle()
+    return BIT and BIT.Art and type(BIT.Art.Get) == "function" and BIT.Art.Get() or "2d"
+  end
+
+  local function artTexture(slot, fallback)
+    if BIT and BIT.Art and type(BIT.Art.Texture) == "function" then
+      return BIT.Art.Texture(slot)
+    end
+    return fallback
+  end
+
   -- The border stroke needs the client's Backdrop API: only frames with the
   -- BackdropTemplate mixin (or a client that always provides it) carry SetBackdrop.
   -- Absent API must not crash the markers, and a zero border must clear the stroke
@@ -509,13 +525,20 @@ function Style.Resolve(moduleName, legacy)
     elseif hasBackdrop then
       holder:SetBackdrop(nil)
     end
-    holder.fill:SetColorTexture(c[1], c[2], c[3], alpha)
+    local segTex = artTexture("segment", MARKER_SEGMENT)
+    if segTex and segTex ~= WHITE then
+      holder.fill:SetTexture(segTex)
+      holder.fill:SetVertexColor(c[1], c[2], c[3], alpha)
+    else
+      holder.fill:SetColorTexture(c[1], c[2], c[3], alpha)
+    end
   end
 
   local function toSquare(holder)
     if holder.orb then holder.orb:Hide() end
+    if holder.bezel then holder.bezel:Hide() end
     holder.fill:Show()
-    holder.fill:SetTexture(WHITE)
+    holder.fill:SetTexture(artTexture("segment", MARKER_SEGMENT) or WHITE)
     holder.fill:SetVertexColor(1, 1, 1, 1)
     holder.fill:ClearAllPoints()
     holder.fill:SetAllPoints(holder)
@@ -523,10 +546,10 @@ function Style.Resolve(moduleName, legacy)
 
   -- Render markers into a container from a resolved style. activeCount and totalCount are plain
   -- readable values from the module's own guards; clamped to 0..totalCount here. The marker
-  -- family: segments (length x thickness on a gap), dots (round CIRCLE discs with an outset
-  -- circular border, gap between painted extents), diamond (rotated squares, falling back to
-  -- squares when the client has no SetRotation) and bar (one strip filled by the active
-  -- share). The scale multiplies the geometry. No unit, target or game API is read here.
+  -- family: segments (beveled plates on a gap), dots (round orbs with a metallic ring, gap
+  -- between painted extents), diamond (faceted diamond jewels with lit steel bezels) and bar
+  -- (one strip filled by the active share). The scale multiplies the geometry.
+  -- No unit, target or game API is read here.
   function Style.RenderMarkers(container, style, activeCount, totalCount, role)
     local c = roleColor(style, role)
     local markers = container.markers
@@ -547,6 +570,7 @@ function Style.Resolve(moduleName, legacy)
       container:SetSize(totalCount > 0 and totalCount * step - gap or 0, outer)
       for i, holder in ipairs(markers) do
         holder:SetShown(i <= totalCount)
+        if holder.bezel then holder.bezel:Hide() end
         if i <= totalCount then
           holder:SetSize(outer, outer)
           holder:ClearAllPoints()
@@ -574,6 +598,57 @@ function Style.Resolve(moduleName, legacy)
       return
     end
 
+    if style.shape == "diamond" then
+      local step = thick + gap
+      local width = totalCount > 0 and totalCount * step - gap or 0
+      container:SetSize(width, thick)
+      local classic = artStyle() == "classic"
+      local gemTex = artTexture("diamond", MARKER_DIAMOND)
+      local bezelTex = artTexture("diamondBezel", MARKER_DIAMOND_BEZEL)
+      for i, holder in ipairs(markers) do
+        if holder.orb then holder.orb:Hide() end
+        if i <= totalCount then
+          local active = i <= activeCount
+          local alpha = active and activeAlpha or dimAlpha
+          holder:SetShown(true)
+          holder:SetSize(thick, thick)
+          holder:ClearAllPoints()
+          holder:SetPoint("TOPLEFT", container, "TOPLEFT", (i - 1) * step, 0)
+          holder.fill:Show()
+          holder.fill:ClearAllPoints()
+          holder.fill:SetAllPoints(holder)
+          if classic or not gemTex or gemTex == WHITE then
+            if holder.bezel then holder.bezel:Hide() end
+            paint(holder, style, c, alpha)
+            pcall(function() holder.fill:SetRotation(math.pi / 4) end)
+          else
+            if holder.SetBackdrop then holder:SetBackdrop(nil) end
+            pcall(function() holder.fill:SetRotation(0) end)
+            holder.fill:SetTexture(gemTex)
+            holder.fill:SetVertexColor(c[1], c[2], c[3], alpha)
+            local bezel = holder.bezel
+            if not bezel then
+              bezel = holder:CreateTexture(nil, "OVERLAY", nil, 1)
+              bezel:SetAllPoints(holder)
+              holder.bezel = bezel
+            end
+            if bezelTex then
+              bezel:SetTexture(bezelTex)
+              bezel:SetVertexColor(1, 1, 1, active and style.opacity or (style.opacity * 0.55))
+              bezel:Show()
+            else
+              bezel:Hide()
+            end
+          end
+        else
+          holder:SetShown(false)
+          if holder.bezel then holder.bezel:Hide() end
+          pcall(function() holder.fill:SetRotation(0) end)
+        end
+      end
+      return
+    end
+
     if style.shape == "bar" then
       local fill, rest = markers[1], markers[2]
       local width = len
@@ -596,9 +671,6 @@ function Style.Resolve(moduleName, legacy)
         end
       end
       for i = 3, #markers do markers[i]:SetShown(false) toSquare(markers[i]) end
-      -- leaving the diamond must not keep the stale 45-degree turn on the bar's own
-      -- fill/remainder either (direct diamond -> bar, no intermediate shape); guarded
-      -- so rotation-less clients keep their plain fallback
       pcall(function()
         for i = 1, #markers do
           markers[i].fill:SetRotation(0)
@@ -607,8 +679,8 @@ function Style.Resolve(moduleName, legacy)
       return
     end
 
-    local step = style.shape == "segments" and len + gap or thick + gap
-    local mw, mh = style.shape == "segments" and len or thick, thick
+    local step = len + gap
+    local mw, mh = len, thick
     local width = totalCount > 0 and totalCount * step - gap or 0
     container:SetSize(width, mh)
     for i = 1, #markers do
@@ -624,24 +696,11 @@ function Style.Resolve(moduleName, legacy)
         toSquare(m)
       end
     end
-    if style.shape == "diamond" then
-      local ok = pcall(function()
-        for i = 1, math.min(totalCount, #markers) do
-          markers[i].fill:SetRotation(math.pi / 4)
-        end
-      end)
-      if not ok then
-        -- a client without texture rotation: the squares stay squares
+    pcall(function()
+      for i = 1, #markers do
+        markers[i].fill:SetRotation(0)
       end
-    else
-      -- leaving the diamond must not keep the stale 45-degree turn; guarded so
-      -- clients without texture rotation keep their plain-squares fallback
-      pcall(function()
-        for i = 1, #markers do
-          markers[i].fill:SetRotation(0)
-        end
-      end)
-    end
+    end)
   end
 
 -- Remove one role-colour write from a scope, so an edit can return to "no override" (the
@@ -696,6 +755,9 @@ local SAMPLE_BAR_MAX, SAMPLE_BAR_VALUE = 100, 62
 -- Blizzard reference source). commit(r, g, b, a) runs while the user drags; cancel() runs on
 -- Cancel with the values the dialog opened with. Returns true when the native picker exists.
 local function openNativeColorPicker(commit, r, g, b, a, hasOpacity, cancel)
+  -- In Blizzard's native Gamepad Mode, opening ColorPickerFrame from addon code taints
+  -- FrameControlsManager and later blocks SetPreferredGamepadInteractTarget; use the inline RGB fields instead.
+  if BIT and BIT.UI and type(BIT.UI.IsGamepadMode) == "function" and BIT.UI.IsGamepadMode() then return false end
   local picker = ColorPickerFrame
   if not picker or type(picker.SetupColorPickerAndShow) ~= "function" then return false end
   -- Setup dispatches both swatch and opacity callbacks on some clients. Suppress
@@ -745,8 +807,8 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
   panel.controls = controls
   panel.sliders, panel.checks = controls.sliders, controls.checks
 
-  local x = 12
-  local y = -8
+  local x = 6
+  local y = -4
   local scopeIsGlobal = false
   local refreshPanel
 
@@ -764,17 +826,24 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
     commit("colors", { [role] = { r, g, b, a } })
   end
 
-  local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  title:SetPoint("TOPLEFT", x, y)
-  title:SetText(BIT.L("Appearance"))
-  y = y - 30
+  if BIT.UI and BIT.UI.Header then
+    local header = BIT.UI.Header(panel, "APPEARANCE")
+    header:SetPoint("TOPLEFT", x, y)
+    header:SetWidth(width - 2 * x)
+    y = y - 24
+  else
+    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT", x, y)
+    title:SetText(BIT.L("Appearance"))
+    y = y - 24
+  end
 
   -- Scope, raw role names and the font path live in this frame. It stays hidden
   -- until Advanced is opened, so the first screen is the everyday controls.
   local advanced = CreateFrame("Frame", nil, panel)
   advanced:Hide()
   panel.advanced = advanced
-  local ax, ay = 12, -8
+  local ax, ay = x, -8
   local advancedButton
   advancedButton = BIT.UI.Button(panel, BIT.L("Advanced"), 160, function()
     panel:SetAdvanced(not panel.advancedOpen)
@@ -862,13 +931,13 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
     controls.swatches[role] = swatch
     if i % 2 == 0 then
       ay = ay - 24
-      ax = 12
+      ax = x
     else
       ax = 170
     end
   end
   if #roles % 2 == 1 then ay = ay - 24 end
-  ax = 12
+  ax = x
 
   -- Validated RGB edit fields, used only when the native picker is unavailable.
   local rgbRole
@@ -880,15 +949,15 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
   rgbTitle:SetPoint("LEFT", 0, 0)
   local rgbBoxes = {}
   for i, name in ipairs({ "R", "G", "B", "A" }) do
-    local box = CreateFrame("EditBox", nil, rgbFrame, "InputBoxTemplate")
-    box:SetSize(48, 18)
-    box:SetFont(DEFAULTS.font, 12, "")
+    local box = (BIT.UI and BIT.UI.EditBox) and BIT.UI.EditBox(rgbFrame, 48, 20)
+      or CreateFrame("EditBox", nil, rgbFrame, "InputBoxTemplate")
+    box:SetSize(48, 20)
     box:SetTextColor(1, 1, 1, 1)
     box:SetNumeric(true)
     box:SetAutoFocus(false)
     box:SetPoint("LEFT", rgbTitle, "RIGHT", 8 + (i - 1) * 54, 0)
     local boxLabel = rgbFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    boxLabel:SetPoint("BOTTOM", box, "TOP", 0, 0)
+    boxLabel:SetPoint("BOTTOM", box, "TOP", 0, 2)
     boxLabel:SetText(name)
     box:SetScript("OnEnterPressed", function()
       local vals = {}
@@ -919,9 +988,9 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
     local fontLabel = advanced:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fontLabel:SetPoint("TOPLEFT", ax, ay)
     fontLabel:SetText(BIT.L("Font path:"))
-    local fontBox = CreateFrame("EditBox", nil, advanced, "InputBoxTemplate")
-    fontBox:SetSize(math.max(80, width - 180), 20)
-    fontBox:SetFont(DEFAULTS.font, 12, "")
+    local fontBox = (BIT.UI and BIT.UI.EditBox) and BIT.UI.EditBox(advanced, math.max(80, width - 180), 22)
+      or CreateFrame("EditBox", nil, advanced, "InputBoxTemplate")
+    fontBox:SetSize(math.max(80, width - 180), 22)
     fontBox:SetTextColor(1, 1, 1, 1)
     fontBox:SetAutoFocus(false)
     fontBox:SetPoint("LEFT", fontLabel, "RIGHT", 6, 0)
@@ -935,11 +1004,12 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
   advanced:SetSize(width, -ay + 8)
 
   -- The shared rows (Core/LookRows.lua): the same slider, drop-down and check box as every module's own options.
+  -- Rows indent their own labels by +6 px, so anchoring them at 0 aligns labels flush with x = 6 headers/buttons.
   local function slider(label, minv, maxv, step, key, display, suffix)
     local row = BIT.Looks.Rows.Slider(panel, label, minv, maxv, step,
       function() return currentStyle()[key] end,
       function(v) commit(key, v) end, { display = display, suffix = suffix })
-    row:SetPoint("TOPLEFT", x, y)
+    row:SetPoint("TOPLEFT", 0, y)
     y = y - row:GetHeight()
     controls.sliders[key] = row
   end
@@ -958,7 +1028,7 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
     end
     local shapeRow = BIT.Looks.Rows.Choice(panel, "Shape", list,
       function() return currentStyle().shape end, function(id) commit("shape", id) end)
-    shapeRow:SetPoint("TOPLEFT", x, y)
+    shapeRow:SetPoint("TOPLEFT", 0, y)
     y = y - shapeRow:GetHeight()
     controls.shape = shapeRow
   end
@@ -978,7 +1048,7 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
     local outlineRow = BIT.Looks.Rows.Choice(panel, "Text outline", {
       { id = "NONE", label = "None" }, { id = "OUTLINE", label = "Outline" }, { id = "THICKOUTLINE", label = "Thick outline" },
     }, function() return currentStyle().outline end, function(id) commit("outline", id) end)
-    outlineRow:SetPoint("TOPLEFT", x, y)
+    outlineRow:SetPoint("TOPLEFT", 0, y)
     y = y - outlineRow:GetHeight()
     controls.outline = outlineRow
   end
@@ -988,8 +1058,8 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
     function() return currentStyle().reducedMotion end,
     function(v) commit("reducedMotion", v) end,
     { tooltip = "Limits the animations (pulses, glides, sweeps) to the calm ones." })
-  motion:SetPoint("TOPLEFT", x, y)
-  y = y - motion:GetHeight()
+  motion:SetPoint("TOPLEFT", 0, y)
+  y = y - motion:GetHeight() - 4
   controls.checks.reducedMotion = motion
 
   -- The Minimal preset is scope-aware: editing this module writes that module's
@@ -1028,11 +1098,14 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
   y = y - math.max(24, (resetHint:GetStringHeight() or 14) + 10)
   controls.resetHint = resetHint
 
-  -- The module's real renderer also owns the appearance sample, including while off.
+  -- The module's real renderer also owns the appearance sample on OFF pages;
+  -- embedded ON tabs already have a full live preview pane beside them (hideSample = true).
   local tab = BIT.tabs and BIT.tabs[moduleName]
   local sample, renderSample
-  local sampleTop, sampleHeight = y, 96
-  if tab and type(tab.buildPreview) == "function" and type(tab.previewRender) == "function" then
+  local sampleTop, sampleHeight = y, capabilities.hideSample and 0 or 96
+  if capabilities.hideSample then
+    renderSample = function() end
+  elseif tab and type(tab.buildPreview) == "function" and type(tab.previewRender) == "function" then
     local ok, scene = pcall(tab.buildPreview, panel)
     if ok and type(scene) == "table" and type(scene.SetPoint) == "function" then
       sample = scene
@@ -1040,7 +1113,7 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
       BIT.Say("the " .. moduleName .. " appearance sample could not be built: " .. tostring(scene))
     end
   end
-  if sample then
+  if not capabilities.hideSample and sample then
     sample:SetPoint("TOPLEFT", x, sampleTop)
     renderSample = function()
       local ok, err = pcall(tab.previewRender, sample, Style.Resolve(moduleName, legacy))
@@ -1058,7 +1131,7 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
         if panel.layout then panel.layout() end
       end
     end
-  else
+  elseif not capabilities.hideSample then
     sample = CreateFrame("Frame", nil, panel)
     sample:SetPoint("TOPLEFT", x, sampleTop)
     sample:SetSize(width - 24, 96)
@@ -1115,7 +1188,17 @@ function BIT.UI.Appearance(parent, moduleName, capabilities, refresh, legacy)
       end
     end
   end)
-  panel.Release = unsubscribe
+  local unsubscribeArt
+  if BIT.Art and type(BIT.Art.Subscribe) == "function" then
+    unsubscribeArt = BIT.Art.Subscribe(function()
+      refreshPanel()
+      if refresh then pcall(refresh) end
+    end)
+  end
+  panel.Release = function()
+    if type(unsubscribe) == "function" then unsubscribe() end
+    if type(unsubscribeArt) == "function" then unsubscribeArt() end
+  end
 
   refreshPanel()
   -- The sample hangs below the last control; keep it inside the panel, and grow

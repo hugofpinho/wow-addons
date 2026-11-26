@@ -54,7 +54,7 @@ Necesita: Auctionator.
 
 Deja plegado el panel de objetivos al entrar y al recargar, y lo vuelve a plegar si el juego lo despliega solo; si lo despliegas tú, se queda así hasta la próxima carga. (Hasta la 1.0 traía también un botón «Limpiar misiones»: se quitó porque Polestar ya lo hace con su ventana «Haz sitio en tu registro de misiones».)
 
-### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2.7)
+### Polestar: probabilidad real — `PolestarProbabilidad` (versión 1.2.8)
 
 Pone en Polestar la probabilidad real de que cada enemigo suelte un objeto de misión (lo que miden en Forever los jugadores de EG Link y lo que te cae a ti, siempre con la misión cogida) y rellena la que Polestar no tiene. También la enseña al pasar el ratón por el enemigo.
 
@@ -74,7 +74,7 @@ Necesita: GearQuestForever.
 
 Usa (si los tienes): Polestar.
 
-### DoesItDiePlus (con dos correcciones) — `UsefulPlatesAndTooltips` (versión 0.9.141 de Ironship)
+### DoesItDiePlus (con dos correcciones) — `UsefulPlatesAndTooltips` (versión 0.9.144 de Ironship)
 
 Información en las placas de nombre y en los tooltips: daño de los hechizos, marcas de DoTs, sanación entrante, escudos, comparación de equipo y números en las barras. Es el addon de Ironship con dos correcciones para WoW Forever. No es mío: es una copia modificada del [addon original](https://www.curseforge.com/wow/addons/doesitdieplus), con su misma licencia. Qué cambia: [COPIA-MODIFICADA.md](UsefulPlatesAndTooltips/COPIA-MODIFICADA.md). No lleva el aviso de versiones nuevas.
 

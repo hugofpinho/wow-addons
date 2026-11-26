@@ -25,8 +25,205 @@ local Looks = {}
 BIT.Looks = Looks
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
-local FILL_DIR = "Interface\\AddOns\\" .. (ADDON or "UsefulPlatesAndTooltips") .. "\\Core\\Textures\\Fill\\"
+local CORE_DIR = "Interface\\AddOns\\" .. (ADDON or "UsefulPlatesAndTooltips") .. "\\Core\\Textures\\"
+local FILL_DIR = CORE_DIR .. "Fill\\"
 local DOT_DIR = "Interface\\AddOns\\" .. (ADDON or "UsefulPlatesAndTooltips") .. "\\Modules\\DoTInfo\\Textures\\"
+local RANGE_DIR = "Interface\\AddOns\\" .. (ADDON or "UsefulPlatesAndTooltips") .. "\\Modules\\Range\\Textures\\"
+local RD_DIR = "Interface\\AddOns\\" .. (ADDON or "UsefulPlatesAndTooltips") .. "\\Modules\\ResourceDing\\Textures\\"
+local STATS_DIR = "Interface\\AddOns\\" .. (ADDON or "UsefulPlatesAndTooltips") .. "\\Modules\\StatsInfo\\Textures\\"
+local HUNTER_DIR = "Interface\\AddOns\\" .. (ADDON or "UsefulPlatesAndTooltips") .. "\\Modules\\HunterRangeFinder\\Textures\\"
+
+---------------------------------------------------------------------------------------------
+-- Art style (Stylized 2D / Pixel Art / Classic): switches icons, gems, orbs, arrows & markers live
+---------------------------------------------------------------------------------------------
+
+local Art = {}
+BIT.Art = Art
+
+local ART_STYLES = {
+    { id = "2d",      label = "Stylized 2D" },
+    { id = "pixel",   label = "Pixel Art" },
+    { id = "classic", label = "Classic" },
+}
+local ART_VALID = { ["2d"] = true, pixel = true, classic = true }
+local ART_LABELS = { ["2d"] = "Stylized 2D", pixel = "Pixel Art", classic = "Classic" }
+
+local ART_TEXTURES = {
+    ["2d"] = {
+        shardGem = RD_DIR .. "ShardGem",
+        shardBezel = RD_DIR .. "ShardBezel",
+        shardGlow = RD_DIR .. "ShardGlow",
+        comboOrb = RD_DIR .. "ComboOrb",
+        comboRing = RD_DIR .. "ComboRing",
+        comboOrbDark = RD_DIR .. "ComboOrbDark",
+        comboGlow = RD_DIR .. "ComboGlow",
+        rangeIn = RANGE_DIR .. "RangeIn",
+        rangeOut = RANGE_DIR .. "RangeOut",
+        diamond = CORE_DIR .. "MarkerDiamond",
+        diamondBezel = CORE_DIR .. "MarkerDiamondBezel",
+        segment = CORE_DIR .. "MarkerSegment",
+        arrowUp = STATS_DIR .. "ArrowUp",
+        arrowDown = STATS_DIR .. "ArrowDown",
+        deadZoneSkull = DOT_DIR .. "KillSkull2D",
+        meleeSword = HUNTER_DIR .. "MeleeSword",
+    },
+    pixel = {
+        shardGem = RD_DIR .. "ShardGem_px",
+        shardBezel = RD_DIR .. "ShardBezel_px",
+        shardGlow = RD_DIR .. "ShardGlow_px",
+        comboOrb = RD_DIR .. "ComboOrb_px",
+        comboRing = RD_DIR .. "ComboRing_px",
+        comboOrbDark = RD_DIR .. "ComboOrbDark_px",
+        comboGlow = RD_DIR .. "ComboGlow_px",
+        rangeIn = RANGE_DIR .. "RangeIn_px",
+        rangeOut = RANGE_DIR .. "RangeOut_px",
+        diamond = CORE_DIR .. "MarkerDiamond_px",
+        diamondBezel = CORE_DIR .. "MarkerDiamondBezel_px",
+        segment = CORE_DIR .. "MarkerSegment_px",
+        arrowUp = STATS_DIR .. "ArrowUp_px",
+        arrowDown = STATS_DIR .. "ArrowDown_px",
+        deadZoneSkull = DOT_DIR .. "KillSkull_px",
+        meleeSword = HUNTER_DIR .. "MeleeSword_px",
+    },
+    classic = {
+        shardGem = WHITE,
+        shardBezel = nil,
+        shardGlow = nil,
+        comboOrb = RD_DIR .. "ComboOrb",
+        comboRing = RD_DIR .. "ComboRing",
+        comboOrbDark = RD_DIR .. "ComboOrbDark",
+        comboGlow = RD_DIR .. "ComboGlow",
+        rangeIn = "Interface\\RaidFrame\\ReadyCheck-Ready",
+        rangeOut = "Interface\\RaidFrame\\ReadyCheck-NotReady",
+        diamond = WHITE,
+        diamondBezel = nil,
+        segment = WHITE,
+        arrowUp = "Interface\\Buttons\\UI-MicroStream-Green",
+        arrowDown = "Interface\\Buttons\\UI-MicroStream-Red",
+        deadZoneSkull = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8",
+        meleeSword = "Interface\\Icons\\INV_Sword_04",
+    },
+}
+
+local artListeners = {}
+
+function Art.Get()
+    local db = type(BIT.DB) == "function" and BIT.DB() or nil
+    local style = type(db) == "table" and db.artStyle or nil
+    if style == "3d" then return "2d" end
+    if ART_VALID[style] then return style end
+    return "2d"
+end
+
+function Art.List()
+    local list = {}
+    for i, entry in ipairs(ART_STYLES) do list[i] = entry end
+    return list
+end
+
+function Art.Label(id)
+    if id == "3d" then id = "2d" end
+    local key = ART_VALID[id] and id or Art.Get()
+    return BIT.L(ART_LABELS[key] or "Stylized 2D")
+end
+
+function Art.Texture(slot, styleOverride)
+    if styleOverride == "3d" then styleOverride = "2d" end
+    local style = ART_VALID[styleOverride] and styleOverride or Art.Get()
+    local map = ART_TEXTURES[style] or ART_TEXTURES["2d"]
+    return map[slot]
+end
+
+-- Classic UI-MicroStream-Green ships pointing down, so only Classic mirrors the up arrow vertically.
+function Art.ArrowFlipUp(styleOverride)
+    if styleOverride == "3d" then styleOverride = "2d" end
+    local style = ART_VALID[styleOverride] and styleOverride or Art.Get()
+    return style == "classic"
+end
+
+local KILL_ICON_FAMILIES = {
+    skull =     { ["2d"] = "skull2d",   pixel = "skull_px",     classic = "skull" },
+    check =     { ["2d"] = "check2d",   pixel = "check_px",     classic = "check" },
+    cross =     { ["2d"] = "cross2d",   pixel = "cross_px",     classic = "cross" },
+    crosshair = { ["2d"] = "crosshair", pixel = "crosshair_px", classic = "crosshair" },
+    blades =    { ["2d"] = "blades",    pixel = "blades_px",    classic = "blades" },
+}
+local KILL_ICON_TO_FAMILY = {}
+for fam, styles in pairs(KILL_ICON_FAMILIES) do
+    for _, iconId in pairs(styles) do KILL_ICON_TO_FAMILY[iconId] = fam end
+end
+
+-- Maps a paired kill-icon id to its equivalent in the requested art style (unique icons stay unchanged).
+function Art.MapKillIcon(id, styleOverride)
+    if type(id) ~= "string" then return id end
+    local fam = KILL_ICON_TO_FAMILY[id]
+    if not fam then return id end
+    if styleOverride == "3d" then styleOverride = "2d" end
+    local style = ART_VALID[styleOverride] and styleOverride or Art.Get()
+    return KILL_ICON_FAMILIES[fam][style] or id
+end
+
+function Art.Subscribe(fn)
+    if type(fn) ~= "function" then return function() end end
+    local present = false
+    for _, existing in ipairs(artListeners) do
+        if existing == fn then present = true; break end
+    end
+    if not present then artListeners[#artListeners + 1] = fn end
+    return function()
+        for i = #artListeners, 1, -1 do
+            if artListeners[i] == fn then table.remove(artListeners, i) end
+        end
+    end
+end
+
+function Art.Set(id)
+    if id == "3d" then id = "2d" end
+    if not ART_VALID[id] then return false end
+    local db = type(BIT.DB) == "function" and BIT.DB() or nil
+    if type(db) == "table" then db.artStyle = id end
+    local snapshot = {}
+    for i, fn in ipairs(artListeners) do snapshot[i] = fn end
+    for _, fn in ipairs(snapshot) do pcall(fn, id) end
+    return true
+end
+
+---------------------------------------------------------------------------------------------
+-- Kill icons (shared by DoTInfo and CastPrediction)
+---------------------------------------------------------------------------------------------
+
+Looks.KILL_ICONS = {
+    -- Keep index 1 as "skull" -> UI-RaidTargetingIcon_8 for saved settings & fallback stability.
+    { id = "skull",        label = "Raid skull",           path = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", group = "Classic" },
+    { id = "skull2d",      label = "Faceted skull",        path = DOT_DIR .. "KillSkull2D",      group = "Stylized 2D" },
+    { id = "crosshair",    label = "Lethal crosshair",     path = DOT_DIR .. "KillCrosshair",    group = "Stylized 2D" },
+    { id = "blades",       label = "Execution blades",     path = DOT_DIR .. "KillBlades",       group = "Stylized 2D" },
+    { id = "check2d",      label = "Crystal checkmark",    path = RANGE_DIR .. "RangeIn",        group = "Stylized 2D" },
+    { id = "cross2d",      label = "Crystal cross",        path = RANGE_DIR .. "RangeOut",       group = "Stylized 2D" },
+    { id = "skull_px",     label = "Pixel skull",          path = DOT_DIR .. "KillSkull_px",     group = "Pixel Art" },
+    { id = "crosshair_px", label = "Pixel crosshair",      path = DOT_DIR .. "KillCrosshair_px", group = "Pixel Art" },
+    { id = "blades_px",    label = "Pixel blades",         path = DOT_DIR .. "KillBlades_px",    group = "Pixel Art" },
+    { id = "check_px",     label = "Pixel checkmark",      path = RANGE_DIR .. "RangeIn_px",     group = "Pixel Art" },
+    { id = "cross_px",     label = "Pixel cross",          path = RANGE_DIR .. "RangeOut_px",    group = "Pixel Art" },
+    { id = "shades",       label = "Sunglasses",           path = DOT_DIR .. "Sunglasses",       group = "Pixel Art" },
+    { id = "cross",        label = "Red X",                path = "Interface\\RaidFrame\\ReadyCheck-NotReady", group = "Classic" },
+    { id = "check",        label = "Green checkmark",      path = "Interface\\RaidFrame\\ReadyCheck-Ready",    group = "Classic" },
+    { id = "boss",         label = "Boss skull",           path = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", group = "Classic" },
+    { id = "impact",       label = "Impact",               path = "Interface\\SpellShadow\\Spell_Shadow_Shadowfury",    group = "Classic" },
+}
+
+function Looks.KillIcons()
+    local list = { kind = "icon" }
+    for i, entry in ipairs(Looks.KILL_ICONS) do list[i] = entry end
+    return list
+end
+
+function Looks.KillIcon(id)
+    for _, entry in ipairs(Looks.KILL_ICONS) do
+        if entry.id == id then return entry end
+    end
+    return Looks.KILL_ICONS[1]
+end
 
 ---------------------------------------------------------------------------------------------
 -- Colours
@@ -115,12 +312,173 @@ function Looks.ColorEntry(list, id)
     return nil
 end
 
--- Blizzard's own colour picker. set("#rrggbb") runs while the user drags; Cancel sets the id the row had before (a name
--- stays a name, "school" stays "school").
+-- Taint-free RGB + Hex colour dialog used in Gamepad Mode (opening Blizzard's ColorPickerFrame from
+-- addon code in Gamepad Mode taints FrameControlsManager and blocks SetPreferredGamepadInteractTarget)
+-- or when ColorPickerFrame is unavailable.
+local customColorDialog
+local function openCustomColorDialog(currentId, rgb, set)
+    local UI = BIT.UI
+    if not customColorDialog then
+        local catcher = CreateFrame("Button", nil, UIParent)
+        catcher:SetAllPoints(UIParent)
+        catcher:SetFrameStrata("FULLSCREEN_DIALOG")
+        catcher:SetFrameLevel(100)
+        local shade = catcher:CreateTexture(nil, "BACKGROUND")
+        shade:SetAllPoints()
+        shade:SetColorTexture(0, 0, 0, 0.45)
+        catcher:Hide()
+
+        local box = CreateFrame("Frame", "UsefulPlatesAndTooltipsColorPicker", catcher, BackdropTemplateMixin and "BackdropTemplate" or nil)
+        box:SetSize(300, 224)
+        box:SetPoint("CENTER", UIParent, "CENTER", 0, 30)
+        box:SetFrameStrata("FULLSCREEN_DIALOG")
+        box:SetFrameLevel(105)
+        box:EnableMouse(true)
+        box:SetClampedToScreen(true)
+        if UI and UI.Backdrop then UI.Backdrop(box, 0.06, 0.98, true) end
+
+        local heading = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        heading:SetPoint("TOPLEFT", 14, -12)
+        heading:SetText(BIT.L("Custom colour..."))
+        if UI and UI.COLOR then
+            heading:SetTextColor(UI.COLOR.heading[1], UI.COLOR.heading[2], UI.COLOR.heading[3])
+        end
+
+        local rule = box:CreateTexture(nil, "ARTWORK")
+        local d = (UI and UI.COLOR and UI.COLOR.divider) or { 1, 0.82, 0, 0.18 }
+        rule:SetColorTexture(d[1], d[2], d[3], d[4])
+        rule:SetHeight(1)
+        rule:SetPoint("TOPLEFT", 10, -32)
+        rule:SetPoint("TOPRIGHT", -10, -32)
+
+        local swatch = box:CreateTexture(nil, "ARTWORK")
+        swatch:SetSize(272, 22)
+        swatch:SetPoint("TOPLEFT", 14, -42)
+        swatch:SetColorTexture(1, 1, 1, 1)
+
+        local state = { r = 255, g = 255, b = 255, syncing = false }
+        local sliders = {}
+        local hexBox
+
+        local function applyLive()
+            local r, g, b = state.r / 255, state.g / 255, state.b / 255
+            swatch:SetColorTexture(r, g, b, 1)
+            local hex = Looks.Hex(r, g, b)
+            if hexBox and not hexBox:HasFocus() then hexBox:SetText(hex) end
+            if type(state.set) == "function" then state.set(hex) end
+        end
+
+        for i, spec in ipairs({ { "r", "R" }, { "g", "G" }, { "b", "B" } }) do
+            local key, labelText = spec[1], spec[2]
+            local y = -74 - (i - 1) * 28
+            local lbl = box:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            lbl:SetPoint("TOPLEFT", 16, y - 3)
+            lbl:SetText(labelText)
+            local sl = CreateFrame("Slider", nil, box)
+            sl:SetOrientation("HORIZONTAL")
+            sl:SetSize(196, 18)
+            sl:SetPoint("TOPLEFT", 38, y)
+            sl:SetMinMaxValues(0, 255)
+            sl:SetValueStep(1)
+            if sl.SetObeyStepOnDrag then sl:SetObeyStepOnDrag(true) end
+            sl:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+            if UI and UI.SkinSlider then UI.SkinSlider(sl, 6) end
+            local val = box:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            val:SetPoint("LEFT", sl, "RIGHT", 8, 0)
+            sl:SetScript("OnValueChanged", function(_, v)
+                v = math.max(0, math.min(255, math.floor(v + 0.5)))
+                val:SetText(tostring(v))
+                if state.syncing then return end
+                state[key] = v
+                applyLive()
+            end)
+            sliders[key] = { slider = sl, value = val }
+        end
+
+        local hexLabel = box:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        hexLabel:SetPoint("TOPLEFT", 16, -162)
+        hexLabel:SetText("Hex:")
+        hexBox = (UI and UI.EditBox) and UI.EditBox(box, 110, 22) or CreateFrame("EditBox", nil, box)
+        hexBox:SetPoint("LEFT", hexLabel, "RIGHT", 8, 0)
+        hexBox:SetMaxLetters(7)
+        hexBox:SetScript("OnEnterPressed", function(self)
+            local parsed = Looks.Rgb(self:GetText())
+            if parsed then
+                state.syncing = true
+                state.r = math.floor(parsed[1] * 255 + 0.5)
+                state.g = math.floor(parsed[2] * 255 + 0.5)
+                state.b = math.floor(parsed[3] * 255 + 0.5)
+                sliders.r.slider:SetValue(state.r)
+                sliders.g.slider:SetValue(state.g)
+                sliders.b.slider:SetValue(state.b)
+                state.syncing = false
+                applyLive()
+            end
+            self:ClearFocus()
+        end)
+        hexBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+        local function cancel()
+            local prev, fn = state.previousId, state.set
+            state.set = nil
+            box:Hide()
+            catcher:Hide()
+            if prev ~= nil and type(fn) == "function" then fn(prev) end
+        end
+        local function accept()
+            state.set = nil
+            box:Hide()
+            catcher:Hide()
+        end
+        catcher:SetScript("OnClick", cancel)
+
+        local cancelBtn = UI and UI.FitButton(box, CANCEL or BIT.L("Cancel"), 80, cancel) or CreateFrame("Button", nil, box)
+        cancelBtn:SetPoint("BOTTOMRIGHT", -14, 12)
+        local okBtn = UI and UI.FitButton(box, OKAY or "OK", 72, accept) or CreateFrame("Button", nil, box)
+        okBtn:SetPoint("RIGHT", cancelBtn, "LEFT", -8, 0)
+
+        if UI and UI.CloseOnEscape then UI.CloseOnEscape(box, cancel) end
+        if BIT.GamePadUI then
+            BIT.GamePadUI.Attach(box, function(self, key)
+                if key == "PAD2" then cancel(); return true end
+                if key == "PADLSHOULDER" or key == "PADRSHOULDER" then return true end
+                return BIT.GamePadUI.Navigate(self, key)
+            end)
+        end
+        customColorDialog = { catcher = catcher, box = box, swatch = swatch, sliders = sliders, hexBox = hexBox, state = state }
+    end
+
+    local dlg = customColorDialog
+    local st = dlg.state
+    st.previousId = currentId
+    st.set = set
+    st.syncing = true
+    st.r = math.max(0, math.min(255, math.floor((rgb[1] or 1) * 255 + 0.5)))
+    st.g = math.max(0, math.min(255, math.floor((rgb[2] or 1) * 255 + 0.5)))
+    st.b = math.max(0, math.min(255, math.floor((rgb[3] or 1) * 255 + 0.5)))
+    dlg.sliders.r.slider:SetValue(st.r)
+    dlg.sliders.g.slider:SetValue(st.g)
+    dlg.sliders.b.slider:SetValue(st.b)
+    dlg.sliders.r.value:SetText(tostring(st.r))
+    dlg.sliders.g.value:SetText(tostring(st.g))
+    dlg.sliders.b.value:SetText(tostring(st.b))
+    dlg.swatch:SetColorTexture(st.r / 255, st.g / 255, st.b / 255, 1)
+    dlg.hexBox:SetText(Looks.Hex(st.r / 255, st.g / 255, st.b / 255))
+    st.syncing = false
+    dlg.catcher:Show()
+    dlg.box:Show()
+    return true
+end
+
+-- Blizzard's own colour picker (or our taint-free RGB/Hex dialog in Gamepad Mode). set("#rrggbb") runs
+-- while the user drags; Cancel sets the id the row had before (a name stays a name, "school" stays "school").
 function Looks.PickColor(currentId, set)
-    local picker = ColorPickerFrame
-    if type(picker) ~= "table" or type(set) ~= "function" then return false end
+    if type(set) ~= "function" then return false end
     local rgb = Looks.Rgb(currentId) or { 1, 1, 1 }
+    local picker = ColorPickerFrame
+    if (BIT.UI and type(BIT.UI.IsGamepadMode) == "function" and BIT.UI.IsGamepadMode()) or type(picker) ~= "table" then
+        return openCustomColorDialog(currentId, rgb, set)
+    end
     pcall(picker.SetFrameStrata, picker, "FULLSCREEN_DIALOG")
     if type(picker.SetupColorPickerAndShow) == "function" then
         local starting = true
@@ -371,7 +729,7 @@ local menu
 
 local function build()
     menu = CreateFrame("Frame", "UsefulPlatesAndTooltips_PickList", UIParent, "BackdropTemplate")
-    if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "UsefulPlatesAndTooltips_PickList") end -- Escape closes it
+    if BIT.UI and BIT.UI.CloseOnEscape then BIT.UI.CloseOnEscape(menu) end
     menu:SetFrameStrata("TOOLTIP") -- above every settings window, whatever strata and levels its rows use
     menu:EnableMouse(true)
     menu:EnableMouseWheel(true)
@@ -470,7 +828,8 @@ end
 
 -- One header row per group, groups in one fixed order whatever order a module's list (or the catalog) lists them in. Entries
 -- without a group stay first, in their own order; a group nobody knows comes after the known ones.
-local GROUP_ORDER = { Basic = 1, Blizzard = 2, Soft = 3, ["Bar shapes"] = 4, Patterns = 5, Organic = 6, Material = 7,
+local GROUP_ORDER = { ["Stylized 2D"] = 1, ["Pixel Art"] = 2, Classic = 3,
+    Basic = 1, Blizzard = 2, Soft = 3, ["Bar shapes"] = 4, Patterns = 5, Organic = 6, Material = 7,
     ["Colorful (own colors)"] = 8, ["Shield art"] = 9, ["Shared media"] = 10 }
 
 local function withHeaders(list)
@@ -521,7 +880,8 @@ function Looks.PickList(owner, list, current, pick)
         if entry.id == current then menu.offset = math.max(0, math.min(#menu.list - ROWS, i - 4)) break end
     end
     local rows = math.min(ROWS, #menu.list)
-    menu:SetSize(math.max(owner:GetWidth() or 180, 190), rows * ROW_HEIGHT + 8)
+    local footer = #menu.list > ROWS and 14 or 0
+    menu:SetSize(math.max(owner:GetWidth() or 180, 190), rows * ROW_HEIGHT + 8 + footer)
     menu:ClearAllPoints()
     local bottom = owner.GetBottom and owner:GetBottom() or nil
     if bottom and bottom < rows * ROW_HEIGHT + 40 then
@@ -535,6 +895,10 @@ end
 
 function Looks.ClosePickList()
     if menu then menu:Hide() end
+end
+
+function Looks.IsPickListShown()
+    return menu ~= nil and menu:IsShown() == true
 end
 
 -- The colour list entry a module's option row should show and what a click does, shared by every row builder:
